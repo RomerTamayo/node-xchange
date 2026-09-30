@@ -1,0 +1,13 @@
+node_modules/
+dist/
+target/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+# Stellar CLI local identities
+.stellar/
+# Supabase local
+node/supabase/.branches/
+node/supabase/.temp/

@@ -1,0 +1,11 @@
+{
+  "name": "nodexchange",
+  "private": true,
+  "license": "AGPL-3.0-only",
+  "packageManager": "pnpm@11.7.0",
+  "scripts": {
+    "dev:web": "pnpm --filter @nodexchange/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  }
+}
