@@ -9,5 +9,5 @@ target/
 # Stellar CLI local identities
 .stellar/
 # Supabase local
-node/supabase/.branches/
-node/supabase/.temp/
+supabase/.branches/
+supabase/.temp/
