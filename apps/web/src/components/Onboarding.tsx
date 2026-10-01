@@ -110,7 +110,7 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet, u: Un
             key={id}
             onClick={() => setTab(id)}
             className={`flex items-center justify-center gap-1.5 rounded-lg px-1 py-2 transition ${
-              tab === id ? "glass text-white" : "text-ink-400 hover:text-white"
+              tab === id ? "nx-glass text-white" : "text-ink-400 hover:text-white"
             }`}
           >
             <span className="hidden sm:inline">{icon}</span>
@@ -156,7 +156,7 @@ export function Shell({ children }: { children: ReactNode }) {
   useLang();
   return (
     <div className="flex min-h-dvh items-center justify-center p-3 sm:p-4">
-      <div className="glass w-full max-w-md space-y-4 rounded-3xl p-5 sm:p-6">
+      <div className="nx-glass w-full max-w-md space-y-4 rounded-3xl p-5 sm:p-6">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl">

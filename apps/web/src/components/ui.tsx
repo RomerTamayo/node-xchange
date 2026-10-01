@@ -13,10 +13,10 @@ type Variant = "primary" | "ghost" | "danger" | "plain";
 
 const variants: Record<Variant, string> = {
   primary:
-    "gloss bg-gradient-to-b from-emerald-300 to-emerald-500 text-ink-950 hover:from-emerald-200 hover:to-emerald-400 [--gloss-glow:rgb(16_185_129/0.55)]",
-  ghost: "glass text-ink-100 hover:bg-white/10",
+    "nx-gloss bg-gradient-to-b from-emerald-300 to-emerald-500 text-ink-950 hover:from-emerald-200 hover:to-emerald-400 [--gloss-glow:rgb(16_185_129/0.55)]",
+  ghost: "nx-glass text-ink-100 hover:bg-white/10",
   danger:
-    "gloss bg-gradient-to-b from-ruby-500 to-ruby-700 text-white hover:from-ruby-400 hover:to-ruby-600 [--gloss-glow:rgb(224_17_95/0.55)]",
+    "nx-gloss bg-gradient-to-b from-ruby-500 to-ruby-700 text-white hover:from-ruby-400 hover:to-ruby-600 [--gloss-glow:rgb(224_17_95/0.55)]",
   plain: "text-ink-300 hover:bg-white/5 hover:text-white",
 };
 
@@ -63,7 +63,7 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       <div
         role="dialog"
         aria-label={title}
-        className="glass max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-ink-950/70 p-5"
+        className="nx-glass max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-ink-950/70 p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -83,7 +83,14 @@ export function ErrorText({ error }: { error: string | null }) {
 }
 
 export function errorMessage(e: unknown): string {
-  const msg = e instanceof Error ? e.message : String(e);
+  // Wallet libraries sometimes reject with plain objects ({ code, message }).
+  const msg =
+    e instanceof Error
+      ? e.message
+      : typeof (e as { message?: unknown })?.message === "string"
+        ? (e as { message: string }).message
+        : String(e);
+  if (/closed the modal/i.test(msg)) return t("errPickerClosed");
   if (/reject|denied|cancel/i.test(msg)) return t("errCancelled");
   if (/op_underfunded|underfunded/i.test(msg)) return t("errUnderfunded");
   if (/op_no_trust|trustline/i.test(msg)) return t("errNoTrust");
@@ -213,7 +220,7 @@ export function Menu({
       {open && (
         <div
           role="menu"
-          className={`glass absolute z-40 mt-2 w-64 overflow-hidden rounded-2xl bg-ink-950/85 p-1.5 ${align === "right" ? "right-0" : "left-0"}`}
+          className={`nx-glass absolute z-40 mt-2 w-64 overflow-hidden rounded-2xl bg-ink-950/85 p-1.5 ${align === "right" ? "right-0" : "left-0"}`}
         >
           {header && <div className="border-b border-white/10 px-3 py-2">{header}</div>}
           {items.map((item) => (
@@ -244,7 +251,7 @@ export function Menu({
 export function LangToggle() {
   const lang = useLang();
   return (
-    <div className="glass flex rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label={t("language")}>
+    <div className="nx-glass flex rounded-xl p-0.5 text-xs font-semibold" role="group" aria-label={t("language")}>
       {(["es", "en"] as const).map((l) => (
         <button
           key={l}

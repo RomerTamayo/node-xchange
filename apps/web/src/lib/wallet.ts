@@ -4,7 +4,7 @@
 import nacl from "tweetnacl";
 import { Keypair } from "@stellar/stellar-sdk";
 import { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
-import { Networks } from "@creit.tech/stellar-wallets-kit/types";
+import { Networks, type SwkAppTheme } from "@creit.tech/stellar-wallets-kit/types";
 import { defaultModules } from "@creit.tech/stellar-wallets-kit/modules/utils";
 import {
   fromBase64,
@@ -78,10 +78,31 @@ export function localWallet(secret: string): Wallet {
   };
 }
 
+/** The wallet picker in NodeXchange's colours (black base, emerald accent). */
+const KIT_THEME: SwkAppTheme = {
+  background: "#101318",
+  "background-secondary": "#08090c",
+  "foreground-strong": "#ffffff",
+  foreground: "#e8eaee",
+  "foreground-secondary": "#b0b6c1",
+  primary: "#34d399",
+  "primary-foreground": "#08090c",
+  transparent: "rgba(0, 0, 0, 0)",
+  lighter: "#1b1f26",
+  light: "#23272f",
+  "light-gray": "#4b515e",
+  gray: "#8a91a0",
+  danger: "#ef2d63",
+  border: "rgba(255, 255, 255, 0.10)",
+  shadow: "0 20px 40px -12px rgba(0, 0, 0, 0.8), 0 0 0 1px rgba(139, 92, 246, 0.15)",
+  "border-radius": "1rem",
+  "font-family": "inherit",
+};
+
 let kitReady = false;
 function initKit() {
   if (kitReady) return;
-  StellarWalletsKit.init({ modules: defaultModules(), network: Networks.TESTNET });
+  StellarWalletsKit.init({ modules: defaultModules(), network: Networks.TESTNET, theme: KIT_THEME });
   kitReady = true;
 }
 

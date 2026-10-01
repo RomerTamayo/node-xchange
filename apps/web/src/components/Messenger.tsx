@@ -70,7 +70,7 @@ function Avatar({ address, alias, size = "md" }: { address: string; alias: strin
   return (
     <span
       aria-hidden
-      className={`gloss inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br font-semibold text-white ${dim} ${AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length]}`}
+      className={`nx-gloss inline-flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br font-semibold text-white ${dim} ${AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length]}`}
     >
       {letters}
     </span>
@@ -217,7 +217,7 @@ export function Messenger({
 
   return (
     <div className="flex h-dvh flex-col">
-      <header className="glass relative z-30 flex items-center gap-2 rounded-none border-x-0 border-t-0 px-3 py-2 sm:gap-3 sm:px-4">
+      <header className="nx-glass relative z-30 flex items-center gap-2 rounded-none border-x-0 border-t-0 px-3 py-2 sm:gap-3 sm:px-4">
         <h1 className="text-lg">
           <Logo />
         </h1>
@@ -318,7 +318,7 @@ export function Messenger({
             />
           ) : (
             <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-ink-400">
-              <div className="glass max-w-sm rounded-2xl p-6">
+              <div className="nx-glass max-w-sm rounded-2xl p-6">
                 <ShieldCheck className="mx-auto mb-3 text-cyan-300" size={28} />
                 {t("emptyPane")}
               </div>
@@ -409,7 +409,7 @@ function ConversationItem({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition ${active ? "glass" : "hover:bg-white/5"}`}
+      className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition ${active ? "nx-glass" : "hover:bg-white/5"}`}
     >
       <Avatar address={peer} alias={alias} />
       <div className="min-w-0 flex-1">
@@ -417,7 +417,7 @@ function ConversationItem({
         <div className="truncate text-xs text-ink-400">{preview(last)}</div>
       </div>
       {unread > 0 && (
-        <span className="gloss rounded-full bg-gradient-to-b from-emerald-300 to-emerald-500 px-2 text-xs font-semibold text-ink-950">
+        <span className="nx-gloss rounded-full bg-gradient-to-b from-emerald-300 to-emerald-500 px-2 text-xs font-semibold text-ink-950">
           {unread}
         </span>
       )}
@@ -554,7 +554,7 @@ function ChatPane(props: {
               className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 text-sm sm:max-w-[70%] ${
                 m.dir === "out"
                   ? "rounded-br-md border border-violet-300/25 bg-gradient-to-br from-violet-500/40 to-cyan-500/25 text-white shadow-[inset_0_1px_0_rgb(255_255_255/0.15)]"
-                  : "glass rounded-bl-md"
+                  : "nx-glass rounded-bl-md"
               }`}
             >
               {m.payload.t === "text" && <p className="whitespace-pre-wrap break-words">{m.payload.body}</p>}

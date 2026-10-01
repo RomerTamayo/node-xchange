@@ -28,7 +28,7 @@ function AssetPicker({ value, onChange }: { value: AssetCode; onChange: (a: Asse
         <button
           key={a}
           onClick={() => onChange(a)}
-          className={`rounded-lg py-1.5 transition ${value === a ? "glass text-white" : "text-ink-400 hover:text-white"}`}
+          className={`rounded-lg py-1.5 transition ${value === a ? "nx-glass text-white" : "text-ink-400 hover:text-white"}`}
         >
           {a}
         </button>
@@ -435,7 +435,7 @@ export function DealsPanel({
       {deals?.length === 0 && <p className="text-sm text-ink-400">{t("noDeals")}</p>}
       <div className="space-y-3">
         {deals?.map(({ id, deal }) => (
-          <div key={id} className="glass rounded-2xl p-3">
+          <div key={id} className="nx-glass rounded-2xl p-3">
             <DealView
               dealId={id}
               me={me}

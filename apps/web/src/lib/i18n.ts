@@ -185,6 +185,7 @@ const es = {
 
   // errors
   errCancelled: "Cancelaste la firma en tu billetera.",
+  errPickerClosed: "Cerraste el selector sin elegir una billetera.",
   errUnderfunded: "Saldo insuficiente.",
   errNoTrust: "El destinatario no tiene activado ese activo.",
   errNoDestination: "La cuenta de destino no existe todavía.",
@@ -410,6 +411,7 @@ const en: Record<Key, string> = {
   confirmLogout: "Yes, delete everything from this device",
 
   errCancelled: "You cancelled the signature in your wallet.",
+  errPickerClosed: "You closed the picker without choosing a wallet.",
   errUnderfunded: "Insufficient balance.",
   errNoTrust: "The recipient hasn't enabled that asset.",
   errNoDestination: "The destination account doesn't exist yet.",
