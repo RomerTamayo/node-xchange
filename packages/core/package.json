@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types test/*.test.ts",
     "e2e:node": "node --experimental-strip-types scripts/e2e-node.ts",
-    "e2e:stellar": "node --experimental-strip-types scripts/e2e-stellar.ts"
+    "e2e:stellar": "node --experimental-strip-types scripts/e2e-stellar.ts",
+    "e2e:withdraw": "node --experimental-strip-types scripts/e2e-withdraw.ts"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "^17.2.0",

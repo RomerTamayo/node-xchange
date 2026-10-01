@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowUpRight,
   Ban,
   Coins,
   Copy,
   Droplets,
   HandCoins,
+  Lock,
   MoreVertical,
   Plus,
   Send,
@@ -27,7 +29,7 @@ import { locale, t, useLang } from "../lib/i18n.ts";
 import { clearAll, loadSettings, saveSettings, type Account, type LocalMessage } from "../lib/store.ts";
 import { useChats } from "../lib/useChats.ts";
 import { connectExternal, short, type Wallet } from "../lib/wallet.ts";
-import { DealCard, DealDialog, DealsPanel, PayDialog, ReceiptLinks } from "./Payments.tsx";
+import { DealCard, DealDialog, DealsPanel, PayDialog, ReceiptLinks, WithdrawDialog } from "./Payments.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
 import {
   Button,
@@ -78,10 +80,13 @@ export function Messenger({
   account,
   wallet: initialWallet,
   onLogout,
+  onLock,
 }: {
   account: Account;
   wallet: Wallet | null;
   onLogout: () => void;
+  /** Back to the password screen, keeping all data. */
+  onLock: () => void;
 }) {
   useLang();
   const session = useMemo(() => new Session(account.session, stellar), [account]);
@@ -92,7 +97,7 @@ export function Messenger({
   const [wallet, setWallet] = useState<Wallet | null>(initialWallet);
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [balances, setBalances] = useState<{ XLM: string; USDC: string | null } | null>(null);
-  const [dialog, setDialog] = useState<"pay" | "deal" | "deals" | "settings" | null>(null);
+  const [dialog, setDialog] = useState<"pay" | "deal" | "deals" | "withdraw" | "settings" | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [newPeer, setNewPeer] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -175,6 +180,12 @@ export function Messenger({
 
   const walletItems: MenuItem[] = [
     { label: t("copyMyAddress"), icon: <Copy size={16} />, onSelect: () => navigator.clipboard.writeText(me) },
+    {
+      label: t("withdraw"),
+      hint: t("withdrawHint"),
+      icon: <ArrowUpRight size={16} className="text-emerald-300" />,
+      onSelect: () => setDialog("withdraw"),
+    },
   ];
   if (balances && balances.USDC === null) {
     walletItems.push({
@@ -240,6 +251,9 @@ export function Messenger({
           </Button>
           <Button variant="ghost" aria-label={t("settings")} title={t("settings")} onClick={() => setDialog("settings")}>
             <SettingsIcon size={16} />
+          </Button>
+          <Button variant="ghost" aria-label={t("lockSession")} title={t("lockSession")} onClick={onLock}>
+            <Lock size={16} />
           </Button>
           <div className="hidden sm:block">
             <LangToggle />
@@ -326,6 +340,9 @@ export function Messenger({
           }}
           onClose={() => setDialog(null)}
         />
+      )}
+      {dialog === "withdraw" && (
+        <WithdrawDialog me={me} getWallet={getWallet} onDone={refreshBalances} onClose={() => setDialog(null)} />
       )}
       {dialog === "settings" && (
         <SettingsDialog

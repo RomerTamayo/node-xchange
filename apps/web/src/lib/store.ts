@@ -33,6 +33,10 @@ export interface Account {
 export const loadAccount = () => read<Account | null>("account", null);
 export const saveAccount = (a: Account) => write("account", a);
 
+/** "Locked" survives reloads, so an external-wallet session stays locked too. */
+export const isLocked = () => read<boolean>("locked", false);
+export const setLocked = (locked: boolean) => write("locked", locked);
+
 // --- settings ---------------------------------------------------------------
 
 export interface Settings {

@@ -72,6 +72,39 @@ export const MAX_TRANSFER_FEE_BPS = 100;
  */
 export const MAX_DEAL_DAYS = 30;
 
+/** Highest fee we bid per operation; Stellar only charges what's needed. */
+const MAX_FEE_PER_OP = String(Number(BASE_FEE) * 100);
+const BASE_RESERVE_STROOPS = 5_000_000n; // 0.5 XLM
+const FEE_BUFFER_STROOPS = 100_000n; // 0.01 XLM left for future fees
+const MIN_CREATE_STROOPS = 10_000_000n; // 1 XLM to create an account
+
+export type WithdrawErrorCode = "same_account" | "no_account_usdc" | "min_create" | "no_trustline" | "bad_memo";
+
+export class WithdrawError extends Error {
+  readonly code: WithdrawErrorCode;
+  constructor(code: WithdrawErrorCode) {
+    super(code);
+    this.code = code;
+  }
+}
+
+/** Numeric memos (exchange ids) go as MEMO_ID, anything else as MEMO_TEXT. */
+export function memoFor(value: string): Memo {
+  const v = value.trim();
+  if (/^\d{1,20}$/.test(v) && BigInt(v) <= 18446744073709551615n) return Memo.id(v);
+  if (new TextEncoder().encode(v).length > 28) throw new WithdrawError("bad_memo");
+  return Memo.text(v);
+}
+
+function toHex(bytes: Uint8Array): string {
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function isTimeout(e: unknown): boolean {
+  const err = e as { response?: { status?: number }; message?: string };
+  return err?.response?.status === 504 || /504|timeout/i.test(err?.message ?? "");
+}
+
 /** Operator fee on direct transfers (0 by default: fees come from escrow deals). */
 export interface TransferFee {
   to: string;
@@ -142,12 +175,104 @@ export class Stellar {
     memo?: string,
   ): Promise<string> {
     const acc = await this.horizon.loadAccount(source);
-    let b = new TransactionBuilder(acc, { fee: BASE_FEE, networkPassphrase: this.net.passphrase });
-    if (memo) b = b.addMemo(Memo.text(memo));
+    let b = new TransactionBuilder(acc, { fee: MAX_FEE_PER_OP, networkPassphrase: this.net.passphrase });
+    if (memo) b = b.addMemo(memoFor(memo));
     const xdr = build(b).setTimeout(180).build().toXDR();
     const signed = TransactionBuilder.fromXDR(await signer(xdr, this.net.passphrase), this.net.passphrase);
-    const res = await this.horizon.submitTransaction(signed);
-    return res.hash;
+    const hash = toHex(signed.hash());
+    try {
+      return (await this.horizon.submitTransaction(signed)).hash;
+    } catch (e) {
+      // A 504 means Horizon gave up waiting, not that the tx failed: look it up.
+      if (!isTimeout(e)) throw e;
+      return this.waitForTx(hash);
+    }
+  }
+
+  private async waitForTx(hash: string, timeoutMs = 60_000): Promise<string> {
+    const until = Date.now() + timeoutMs;
+    while (Date.now() < until) {
+      try {
+        const tx = await this.horizon.transactions().transaction(hash).call();
+        if (tx.successful) return hash;
+        throw new Error(`transaction ${hash} failed`);
+      } catch (e) {
+        if (!(e instanceof NotFoundError)) throw e;
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    throw new Error(`transaction ${hash} still pending; check it later on the explorer`);
+  }
+
+  /**
+   * How much of an asset `address` can send right now: XLM keeps the account's
+   * minimum reserve plus a fee buffer; USDC can be sent in full.
+   */
+  async maxSendable(address: string, code: AssetCode): Promise<string> {
+    const acc = await this.account(address);
+    if (!acc) return "0";
+    if (code === "USDC") {
+      const b = acc.balances.find(
+        (x): x is Horizon.HorizonApi.BalanceLineAsset =>
+          "asset_code" in x && x.asset_code === "USDC" && x.asset_issuer === this.net.usdc.issuer,
+      );
+      if (!b) return "0";
+      const free = toStroops(b.balance) - toStroops(b.selling_liabilities ?? "0");
+      return fromStroops(free > 0n ? free : 0n);
+    }
+    const native = acc.balances.find((x) => x.asset_type === "native")!;
+    const entries = BigInt(2 + acc.subentry_count + (acc.num_sponsoring ?? 0) - (acc.num_sponsored ?? 0));
+    const reserve = entries * BASE_RESERVE_STROOPS;
+    const liabilities = toStroops(native.selling_liabilities ?? "0");
+    const free = toStroops(native.balance) - reserve - liabilities - FEE_BUFFER_STROOPS;
+    return fromStroops(free > 0n ? free : 0n);
+  }
+
+  /** Public info of any account, used to warn before sending to it. */
+  async inspect(address: string): Promise<{ exists: boolean; usdc: boolean; homeDomain: string | null }> {
+    const acc = await this.account(address);
+    if (!acc) return { exists: false, usdc: false, homeDomain: null };
+    const usdc = acc.balances.some(
+      (x) => "asset_code" in x && x.asset_code === "USDC" && x.asset_issuer === this.net.usdc.issuer,
+    );
+    return { exists: true, usdc, homeDomain: acc.home_domain ?? null };
+  }
+
+  /**
+   * Sends to any Stellar address (another wallet or an exchange). XLM to an
+   * account that doesn't exist yet creates it (minimum 1 XLM).
+   */
+  async withdraw(opts: {
+    from: string;
+    to: string;
+    amount: string;
+    asset: AssetCode;
+    memo?: string;
+    signer: TxSigner;
+  }): Promise<{ hash: string; created: boolean }> {
+    if (opts.to === opts.from) throw new WithdrawError("same_account");
+    const dest = await this.inspect(opts.to);
+    let created = false;
+    if (!dest.exists) {
+      if (opts.asset !== "XLM") throw new WithdrawError("no_account_usdc");
+      if (toStroops(opts.amount) < MIN_CREATE_STROOPS) throw new WithdrawError("min_create");
+      created = true;
+    } else if (opts.asset === "USDC" && !dest.usdc) {
+      throw new WithdrawError("no_trustline");
+    }
+    const asset = this.asset(opts.asset);
+    const hash = await this.submit(
+      opts.from,
+      opts.signer,
+      (b) =>
+        b.addOperation(
+          created
+            ? Operation.createAccount({ destination: opts.to, startingBalance: opts.amount })
+            : Operation.payment({ destination: opts.to, asset, amount: opts.amount }),
+        ),
+      opts.memo,
+    );
+    return { hash, created };
   }
 
   /** Publishes (or clears) the user's home node URL. Max 64 bytes. */

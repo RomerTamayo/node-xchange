@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { ExternalLink, FileJson, Printer, ShieldCheck } from "lucide-react";
+import { ExternalLink, FileJson, Printer, Send, ShieldCheck } from "lucide-react";
 import {
   MAX_DEAL_DAYS,
   MAX_TRANSFER_FEE_BPS,
+  WithdrawError,
   dealStatus,
+  isAddress,
   feeOf,
   fromStroops,
   type AssetCode,
@@ -459,6 +461,146 @@ export function DealsPanel({
         ))}
       </div>
       <ErrorText error={error} />
+    </Modal>
+  );
+}
+
+const WITHDRAW_ERRORS: Record<string, Key> = {
+  same_account: "wdSameAccount",
+  no_account_usdc: "wdNoAccountUsdc",
+  min_create: "wdMinCreate",
+  no_trustline: "wdNoTrustline",
+  bad_memo: "wdBadMemo",
+};
+
+/** Send XLM or USDC to any Stellar address: another wallet or an exchange. */
+export function WithdrawDialog({
+  me,
+  getWallet,
+  onDone,
+  onClose,
+}: {
+  me: string;
+  getWallet: () => Promise<Wallet>;
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  useLang();
+  const [asset, setAsset] = useState<AssetCode>("XLM");
+  const [to, setTo] = useState("");
+  const [amount, setAmount] = useState("");
+  const [memo, setMemo] = useState("");
+  const [isExchange, setIsExchange] = useState(false);
+  const [max, setMax] = useState<string | null>(null);
+  const [dest, setDest] = useState<{ exists: boolean; usdc: boolean; homeDomain: string | null } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<{ hash: string; created: boolean } | null>(null);
+
+  const target = to.trim();
+  const validTo = isAddress(target) && target !== me;
+
+  useEffect(() => {
+    setMax(null);
+    stellar.maxSendable(me, asset).then(setMax).catch(() => {});
+  }, [me, asset, sent]);
+
+  useEffect(() => {
+    setDest(null);
+    if (!validTo) return;
+    let live = true;
+    stellar
+      .inspect(target)
+      .then((d) => live && setDest(d))
+      .catch(() => {});
+    return () => {
+      live = false;
+    };
+  }, [target, validTo]);
+
+  const amountOk = AMOUNT_RE.test(amount) && Number(amount) > 0 && (max === null || Number(amount) <= Number(max));
+  const memoOk = !isExchange || memo.trim().length > 0;
+  const valid = validTo && amountOk && memoOk;
+
+  async function submit() {
+    setBusy(true);
+    setError(null);
+    try {
+      const wallet = await getWallet();
+      const res = await stellar.withdraw({
+        from: me,
+        to: target,
+        amount,
+        asset,
+        memo: memo.trim() || undefined,
+        signer: wallet.signTx,
+      });
+      setSent(res);
+      onDone();
+    } catch (e) {
+      setError(e instanceof WithdrawError ? t(WITHDRAW_ERRORS[e.code]) : errorMessage(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (sent) {
+    return (
+      <Modal title={t("withdraw")} onClose={onClose}>
+        <p className="text-sm text-emerald-300">{sent.created ? t("withdrawCreated") : t("withdrawDone")}</p>
+        <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm">
+          <div className="text-lg font-semibold text-white">
+            {amount} {asset}
+          </div>
+          <div className="break-all font-mono text-xs text-ink-400">{target}</div>
+          <ReceiptLinks hash={sent.hash} />
+        </div>
+        <Button className="w-full" onClick={onClose}>
+          {t("close")}
+        </Button>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal title={t("withdraw")} onClose={onClose}>
+      {stellar.net.friendbotUrl && (
+        <p className="rounded-xl border border-violet-400/30 bg-violet-950/40 p-3 text-xs text-violet-200">{t("testnetWarning")}</p>
+      )}
+      <AssetPicker value={asset} onChange={setAsset} />
+      <Field label={t("destination")}>
+        <Input value={to} onChange={(e) => setTo(e.target.value)} placeholder="G…" spellCheck={false} />
+      </Field>
+      {dest && !dest.exists && asset === "XLM" && <p className="text-xs text-cyan-200">{t("willCreate")}</p>}
+      {dest && !dest.exists && asset === "USDC" && <p className="text-xs text-ruby-300">{t("wdNoAccountUsdc")}</p>}
+      {dest?.exists && asset === "USDC" && !dest.usdc && <p className="text-xs text-ruby-300">{t("wdNoTrustline")}</p>}
+      {dest?.homeDomain && <p className="text-xs text-cyan-200">{t("homeDomainHint", { domain: dest.homeDomain })}</p>}
+
+      <Field label={t("amount")} hint={max !== null ? t("available", { amount: max, asset }) : undefined}>
+        <div className="flex gap-2">
+          <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+          <Button variant="ghost" onClick={() => max && setAmount(max)} disabled={!max || max === "0"}>
+            {t("maxAmount")}
+          </Button>
+        </div>
+      </Field>
+
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" className="mt-1" checked={isExchange} onChange={(e) => setIsExchange(e.target.checked)} />
+        <span>
+          {t("exchangeCheck")}
+          {isExchange && <span className="block text-xs text-ruby-300">{t("exchangeMemoWarning")}</span>}
+        </span>
+      </label>
+      <Field label={isExchange ? t("memoRequired") : t("memoOptional")}>
+        <Input value={memo} onChange={(e) => setMemo(e.target.value)} />
+      </Field>
+
+      <ErrorText error={error} />
+      <Button onClick={submit} disabled={!valid || busy} className="w-full">
+        <Send size={16} />
+        {busy ? t("sendingPayment") : valid ? t("sendAmount", { amount, asset }) : t("sendPayment")}
+      </Button>
     </Modal>
   );
 }

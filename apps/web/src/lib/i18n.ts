@@ -208,6 +208,30 @@ const es = {
   receiptNote: "La fuente de verdad es la red Stellar. Verifica este comprobante con su hash en",
   receiptLoading: "Cargando comprobante…",
   popupBlocked: "El navegador bloqueó la ventana del comprobante.",
+  // withdraw
+  withdraw: "Enviar a otra billetera",
+  withdrawHint: "Freighter, Lobstr, Binance, Bybit, Meru…",
+  destination: "Dirección de destino",
+  maxAmount: "Máximo",
+  available: "Disponible: {amount} {asset}",
+  exchangeCheck: "Es la dirección de un exchange (Binance, Bybit, Meru…)",
+  exchangeMemoWarning: "Los exchanges identifican tu depósito por el memo. Sin memo, tu dinero puede perderse.",
+  memoRequired: "Memo (obligatorio)",
+  homeDomainHint: "Esta cuenta pertenece a {domain}. Si es un exchange, necesitas su memo.",
+  willCreate: "Esta dirección todavía no existe en la red: el envío la creará (mínimo 1 XLM).",
+  testnetWarning: "Estás en testnet: estos fondos no tienen valor y no llegan a Binance, Bybit ni Meru, que están en la red real.",
+  sendAmount: "Enviar {amount} {asset}",
+  withdrawDone: "Enviado.",
+  withdrawCreated: "Enviado. La cuenta de destino quedó creada.",
+  wdSameAccount: "Esa es tu propia dirección.",
+  wdNoAccountUsdc: "La dirección no existe todavía. Envíale primero XLM (mínimo 1) para crearla.",
+  wdMinCreate: "Para crear una cuenta nueva debes enviar al menos 1 XLM.",
+  wdNoTrustline: "Esa cuenta no tiene USDC activado. Pídele que lo active (en Freighter: Gestionar activos → USDC).",
+  wdBadMemo: "El memo de texto admite hasta 28 caracteres.",
+
+  // lock
+  lockSession: "Bloquear sesión",
+  unlockExternal: "Conecta tu billetera para desbloquear",
 };
 
 export type Key = keyof typeof es;
@@ -406,6 +430,28 @@ const en: Record<Key, string> = {
   receiptNote: "The Stellar network is the source of truth. Verify this receipt by its hash at",
   receiptLoading: "Loading receipt…",
   popupBlocked: "The browser blocked the receipt window.",
+  withdraw: "Send to another wallet",
+  withdrawHint: "Freighter, Lobstr, Binance, Bybit, Meru…",
+  destination: "Destination address",
+  maxAmount: "Max",
+  available: "Available: {amount} {asset}",
+  exchangeCheck: "This is an exchange address (Binance, Bybit, Meru…)",
+  exchangeMemoWarning: "Exchanges identify your deposit by its memo. Without it your money can be lost.",
+  memoRequired: "Memo (required)",
+  homeDomainHint: "This account belongs to {domain}. If it's an exchange, you need its memo.",
+  willCreate: "This address doesn't exist on the network yet: the transfer will create it (minimum 1 XLM).",
+  testnetWarning: "You're on testnet: these funds have no value and won't reach Binance, Bybit or Meru, which live on the real network.",
+  sendAmount: "Send {amount} {asset}",
+  withdrawDone: "Sent.",
+  withdrawCreated: "Sent. The destination account was created.",
+  wdSameAccount: "That is your own address.",
+  wdNoAccountUsdc: "This address doesn't exist yet. Send it XLM first (minimum 1) to create it.",
+  wdMinCreate: "To create a new account you must send at least 1 XLM.",
+  wdNoTrustline: "That account hasn't enabled USDC. Ask them to enable it (in Freighter: Manage assets → USDC).",
+  wdBadMemo: "Text memos are limited to 28 characters.",
+
+  lockSession: "Lock session",
+  unlockExternal: "Connect your wallet to unlock",
 };
 
 export type Lang = "es" | "en";
