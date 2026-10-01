@@ -7,12 +7,14 @@ import {
   decodeAddress,
   issueCert,
   keypairSigner,
+  normalizeAlias,
   openEnvelope,
   parseCertBody,
   sealPayload,
   signRequest,
   toBase64,
   verifyCert,
+  verifyProfile,
   verifyRequest,
   verifyWalletSignature,
 } from "../src/index.ts";
@@ -102,4 +104,26 @@ test("text messages are capped at 100 characters", async () => {
 
 test("base64 helper round-trips binary", () => {
   assert.equal(toBase64(Uint8Array.from([0, 255, 128])), "AP+A");
+});
+
+test("aliases are normalised and validated", () => {
+  assert.equal(normalizeAlias("  Juan   Pérez "), "Juan Pérez");
+  assert.equal(normalizeAlias("   "), null);
+  assert.equal(normalizeAlias(null), null);
+  assert.equal(normalizeAlias("👩‍💻 Ana"), "👩‍💻 Ana");
+  assert.throws(() => normalizeAlias("x".repeat(25)), /24/);
+  assert.throws(() => normalizeAlias("evil\u202Egnp.exe"), /visible/);
+});
+
+test("profiles verify only with the signing device", async () => {
+  const u = await user();
+  const signed = signRequest(u.keys, u.cert, NODE, { action: "profile", data: { alias: "Romer" } });
+  const cert = parseCertBody(u.cert.body);
+  assert.equal(verifyProfile(cert, { req: signed.req, sig: signed.sig }), "Romer");
+
+  const other = await user();
+  assert.equal(verifyProfile(parseCertBody(other.cert.body), { req: signed.req, sig: signed.sig }), null);
+  const forged = signed.req.replace("Romer", "Admin");
+  assert.equal(verifyProfile(cert, { req: forged, sig: signed.sig }), null);
+  assert.equal(verifyProfile(cert, null), null);
 });

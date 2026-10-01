@@ -23,6 +23,8 @@ export const UNREAD_TTL_MS = 15 * 24 * 60 * 60 * 1000;
 export const READ_TTL_MS = 48 * 60 * 60 * 1000;
 /** Stellar account data entry where a user publishes their node URL. */
 export const NODE_DATA_KEY = "nx.node";
+/** Display alias chosen by the user. Not unique and not searchable. */
+export const MAX_ALIAS_CHARS = 24;
 
 const SEP53_PREFIX = "Stellar Signed Message:\n";
 
@@ -70,7 +72,8 @@ export type Action =
   | { action: "ack"; data: { ids: string[] } }
   | { action: "delete"; data: { ids: string[] } }
   | { action: "unsend"; data: { id: string } }
-  | { action: "contact"; data: { peer: string; status: "accepted" | "blocked" | "none" } };
+  | { action: "contact"; data: { peer: string; status: "accepted" | "blocked" | "none" } }
+  | { action: "profile"; data: { alias: string | null } };
 
 export type RequestBody = Action & { ts: number; node: string };
 
@@ -152,6 +155,44 @@ export async function verifyCert(cert: DeviceCert): Promise<CertBody> {
  * Checks the cert, the device signature, freshness and target node.
  * `node` is the verifying node's own URL; omit to skip that check.
  */
+/**
+ * A user's public profile as a node stores it: the signed "profile" request
+ * itself, so clients can check it came from the user's device.
+ */
+export interface SignedProfile {
+  req: string;
+  sig: string;
+}
+
+/** Trims and validates an alias; null clears it. */
+export function normalizeAlias(alias: string | null): string | null {
+  if (alias === null) return null;
+  const clean = alias.normalize("NFC").replace(/\s+/g, " ").trim();
+  if (!clean) return null;
+  if ([...clean].length > MAX_ALIAS_CHARS || /[\p{Cc}​‪-‮⁦-⁩﻿]/u.test(clean)) {
+    throw new ProtocolError("bad_alias", `alias must be 1-${MAX_ALIAS_CHARS} visible characters`);
+  }
+  return clean;
+}
+
+/** Returns the alias in a profile signed by the device in `cert`, or null. */
+export function verifyProfile(cert: CertBody, profile: SignedProfile | null | undefined): string | null {
+  if (!profile) return null;
+  try {
+    const ok = nacl.sign.detached.verify(
+      utf8(profile.req),
+      fromBase64(profile.sig),
+      fromBase64(cert.signPub),
+    );
+    if (!ok) return null;
+    const body = JSON.parse(profile.req) as RequestBody;
+    if (body.action !== "profile") return null;
+    return normalizeAlias(body.data.alias);
+  } catch {
+    return null;
+  }
+}
+
 export async function verifyRequest(
   signed: SignedRequest,
   opts: { node?: string; now?: number } = {},

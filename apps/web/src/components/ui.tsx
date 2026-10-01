@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode } from "react";
+import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode } from "react";
 
 type Variant = "primary" | "ghost" | "danger";
 
@@ -52,7 +52,7 @@ export function Modal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
       <div
-        className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl"
+        className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
@@ -78,4 +78,61 @@ export function errorMessage(e: unknown): string {
   if (/op_no_trust|trustline/i.test(msg)) return "El destinatario no tiene activado ese activo.";
   if (/op_no_destination/i.test(msg)) return "La cuenta de destino no existe todavía.";
   return msg;
+}
+
+export function ConfirmDialog({
+  title,
+  message,
+  confirmLabel,
+  danger = false,
+  onConfirm,
+  onClose,
+}: {
+  title: string;
+  message: ReactNode;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => Promise<void>;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function confirm() {
+    setBusy(true);
+    setError(null);
+    try {
+      await onConfirm();
+      onClose();
+    } catch (e) {
+      setError(errorMessage(e));
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Modal title={title} onClose={onClose}>
+      <div className="text-sm text-slate-300">{message}</div>
+      <ErrorText error={error} />
+      <div className="flex gap-2">
+        <Button variant="ghost" className="flex-1" onClick={onClose} disabled={busy}>
+          Cancelar
+        </Button>
+        <Button variant={danger ? "danger" : "primary"} className="flex-1" onClick={confirm} disabled={busy}>
+          {busy ? "Un momento…" : confirmLabel}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
+
+/** Alias (if any) always next to the short address: aliases aren't unique. */
+export function PeerName({ address, alias, className = "" }: { address: string; alias: string | null; className?: string }) {
+  const short = `${address.slice(0, 4)}…${address.slice(-4)}`;
+  return (
+    <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${className}`}>
+      {alias && <span className="truncate font-medium">{alias}</span>}
+      <span className={`shrink-0 font-mono ${alias ? "text-xs text-slate-500" : "text-sm"}`}>{short}</span>
+    </span>
+  );
 }

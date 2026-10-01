@@ -15,6 +15,7 @@ import {
   ProtocolError,
   READ_TTL_MS,
   UNREAD_TTL_MS,
+  normalizeAlias,
   validateEnvelope,
   verifyRequest,
   type CertBody,
@@ -87,10 +88,17 @@ function info() {
 async function keys(address: string) {
   if (!isAddress(address)) return fail("bad_address", "invalid address", 400);
   const row = check(
-    await db.from("nx_devices").select("cert_body, cert_sig").eq("address", address).maybeSingle(),
+    await db
+      .from("nx_devices")
+      .select("cert_body, cert_sig, profile_req, profile_sig")
+      .eq("address", address)
+      .maybeSingle(),
   );
   if (!row) return fail("unknown_peer", "address not registered on this node", 404);
-  return json({ cert: { body: row.cert_body, sig: row.cert_sig } });
+  return json({
+    cert: { body: row.cert_body, sig: row.cert_sig },
+    profile: row.profile_req ? { req: row.profile_req, sig: row.profile_sig } : null,
+  });
 }
 
 async function handle(signed: SignedRequest) {
@@ -113,6 +121,8 @@ async function handle(signed: SignedRequest) {
       return json({ ok: true });
     case "contact":
       return await contact(cert.address, body.data.peer, body.data.status);
+    case "profile":
+      return await profile(signed, cert.address, body.data.alias);
   }
   return fail("bad_request", "unknown action", 400);
 }
@@ -142,10 +152,29 @@ async function register(signed: SignedRequest, cert: CertBody) {
       address: cert.address,
       cert_body: signed.cert.body,
       cert_sig: signed.cert.sig,
+      // A new device can't vouch for a profile signed by the previous one.
+      profile_req: null,
+      profile_sig: null,
       updated_at: new Date().toISOString(),
     }),
   );
   return json({ ok: true });
+}
+
+/** Stores the signed request itself; clients verify it with the device key. */
+async function profile(signed: SignedRequest, address: string, alias: string | null) {
+  const clean = normalizeAlias(alias);
+  check(
+    await db
+      .from("nx_devices")
+      .update({
+        profile_req: clean ? signed.req : null,
+        profile_sig: clean ? signed.sig : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("address", address),
+  );
+  return json({ ok: true, alias: clean });
 }
 
 async function contactStatus(owner: string, peer: string): Promise<string | null> {

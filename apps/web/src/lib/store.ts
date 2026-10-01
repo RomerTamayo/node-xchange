@@ -62,11 +62,26 @@ export interface Chats {
   deleted: Record<string, number>;
   accepted: string[];
   blocked: string[];
+  /** Aliases others chose for themselves, verified and cached. */
+  aliases: Record<string, { alias: string | null; at: number }>;
+  /** The alias we published for ourselves. */
+  myAlias: string | null;
 }
 
-const emptyChats = (): Chats => ({ messages: {}, deleted: {}, accepted: [], blocked: [] });
+const emptyChats = (): Chats => ({
+  messages: {},
+  deleted: {},
+  accepted: [],
+  blocked: [],
+  aliases: {},
+  myAlias: null,
+});
 
-export const loadChats = (address: string) => read<Chats>(`chats:${address}`, emptyChats());
+// Spread over defaults so data saved by older versions gains new fields.
+export const loadChats = (address: string): Chats => ({
+  ...emptyChats(),
+  ...read<Partial<Chats>>(`chats:${address}`, {}),
+});
 export const saveChats = (address: string, c: Chats) => write(`chats:${address}`, c);
 
 /** Drops expired local copies (when volatile) and old tombstones. */

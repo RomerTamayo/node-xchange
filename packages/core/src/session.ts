@@ -18,7 +18,10 @@ import {
   type DeviceCert,
   type Envelope,
   type Payload,
+  type SignedProfile,
   type SignedRequest,
+  normalizeAlias,
+  verifyProfile,
 } from "./protocol.ts";
 import type { Stellar } from "./stellar.ts";
 
@@ -68,10 +71,16 @@ export class NodeClient {
     return this.json(await fetch(`${this.url}/info`));
   }
 
-  async cert(address: string): Promise<DeviceCert | null> {
+  /** A registered user's device certificate and (signed) profile. */
+  async keys(address: string): Promise<{ cert: DeviceCert; profile: SignedProfile | null } | null> {
     const res = await fetch(`${this.url}/keys/${address}`);
     if (res.status === 404) return null;
-    return (await this.json<{ cert: DeviceCert }>(res)).cert;
+    const data = await this.json<{ cert: DeviceCert; profile?: SignedProfile | null }>(res);
+    return { cert: data.cert, profile: data.profile ?? null };
+  }
+
+  async cert(address: string): Promise<DeviceCert | null> {
+    return (await this.keys(address))?.cert ?? null;
   }
 
   async post<T>(signed: SignedRequest): Promise<T> {
@@ -141,13 +150,23 @@ export class Session {
     return node;
   }
 
-  async peerCert(peer: string): Promise<CertBody> {
+  /** Verified certificate and alias of `peer`, fetched from their home node. */
+  async peer(peer: string): Promise<{ cert: CertBody; alias: string | null }> {
     const node = await this.nodeOf(peer);
-    const cert = await new NodeClient(node).cert(peer);
-    if (!cert) throw new ProtocolError("unknown_peer", "this address is not on NodeXchange yet", 404);
-    const body = await verifyCert(cert);
-    if (body.address !== peer) throw new ProtocolError("bad_cert", "node returned a foreign certificate");
-    return body;
+    const keys = await new NodeClient(node).keys(peer);
+    if (!keys) throw new ProtocolError("unknown_peer", "this address is not on NodeXchange yet", 404);
+    const cert = await verifyCert(keys.cert);
+    if (cert.address !== peer) throw new ProtocolError("bad_cert", "node returned a foreign certificate");
+    return { cert, alias: verifyProfile(cert, keys.profile) };
+  }
+
+  async peerCert(peer: string): Promise<CertBody> {
+    return (await this.peer(peer)).cert;
+  }
+
+  /** Sets (or clears, with null) the alias others see next to our address. */
+  async setAlias(alias: string | null): Promise<{ ok: true; alias: string | null }> {
+    return this.home({ action: "profile", data: { alias: normalizeAlias(alias) } });
   }
 
   async send(peer: string, payload: Payload): Promise<Envelope> {

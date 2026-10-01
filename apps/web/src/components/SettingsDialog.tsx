@@ -1,13 +1,18 @@
 import { useState } from "react";
+import { MAX_ALIAS_CHARS } from "@nodexchange/core";
 import type { Account, Settings } from "../lib/store.ts";
 import { decryptSecret } from "../lib/wallet.ts";
-import { Button, ErrorText, Field, Input, Modal } from "./ui.tsx";
+import { Button, ErrorText, Field, Input, Modal, PeerName, errorMessage } from "./ui.tsx";
 
 export function SettingsDialog({
   account,
   settings,
   onSettings,
   onClearHistory,
+  myAlias,
+  onSetAlias,
+  blocked,
+  onUnblock,
   onPublishNode,
   onLogout,
   onClose,
@@ -16,10 +21,16 @@ export function SettingsDialog({
   settings: Settings;
   onSettings: (s: Settings) => void;
   onClearHistory: () => void;
+  myAlias: string | null;
+  onSetAlias: (alias: string | null) => Promise<void>;
+  blocked: { address: string; alias: string | null }[];
+  onUnblock: (address: string) => void;
   onPublishNode: () => Promise<string>;
   onLogout: () => void;
   onClose: () => void;
 }) {
+  const [alias, setAlias] = useState(myAlias ?? "");
+  const [savingAlias, setSavingAlias] = useState(false);
   const [password, setPassword] = useState("");
   const [secret, setSecret] = useState<string | null>(null);
   const [confirmLogout, setConfirmLogout] = useState(false);
@@ -36,6 +47,19 @@ export function SettingsDialog({
     } else setError("Contraseña incorrecta.");
   }
 
+  async function saveAlias() {
+    setSavingAlias(true);
+    setError(null);
+    try {
+      await onSetAlias(alias.trim() || null);
+      setNote(alias.trim() ? "Alias actualizado." : "Alias eliminado.");
+    } catch (e) {
+      setError(/bad_alias|visible/.test(String(e)) ? `El alias debe tener de 1 a ${MAX_ALIAS_CHARS} caracteres visibles.` : errorMessage(e));
+    } finally {
+      setSavingAlias(false);
+    }
+  }
+
   async function publish() {
     setError(null);
     try {
@@ -49,6 +73,20 @@ export function SettingsDialog({
   return (
     <Modal title="Ajustes" onClose={onClose}>
       <section className="space-y-2">
+        <Field
+          label="Tu alias"
+          hint="Lo ven las personas con las que hablas, siempre junto a tu dirección. No sirve para buscarte."
+        >
+          <div className="flex gap-2">
+            <Input value={alias} maxLength={MAX_ALIAS_CHARS * 2} onChange={(e) => setAlias(e.target.value)} placeholder="Ej. Romer · Tienda" />
+            <Button onClick={saveAlias} disabled={savingAlias || alias.trim() === (myAlias ?? "")}>
+              Guardar
+            </Button>
+          </div>
+        </Field>
+      </section>
+
+      <section className="space-y-2 border-t border-slate-800 pt-4">
         <label className="flex items-start gap-3 text-sm">
           <input
             type="checkbox"
@@ -68,6 +106,20 @@ export function SettingsDialog({
           Borrar todo el historial local
         </Button>
       </section>
+
+      {blocked.length > 0 && (
+        <section className="space-y-2 border-t border-slate-800 pt-4">
+          <p className="text-xs font-medium text-slate-400">Usuarios bloqueados</p>
+          {blocked.map((b) => (
+            <div key={b.address} className="flex items-center justify-between gap-2">
+              <PeerName address={b.address} alias={b.alias} />
+              <Button variant="ghost" onClick={() => onUnblock(b.address)}>
+                Desbloquear
+              </Button>
+            </div>
+          ))}
+        </section>
+      )}
 
       <section className="space-y-2 border-t border-slate-800 pt-4">
         <p className="text-sm text-slate-400">

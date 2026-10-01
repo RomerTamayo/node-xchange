@@ -13,7 +13,15 @@ import { useChats } from "../lib/useChats.ts";
 import { connectExternal, short, type Wallet } from "../lib/wallet.ts";
 import { DealCard, DealDialog, PayDialog, ReceiptLinks } from "./Payments.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
-import { Button, ErrorText, Input, errorMessage } from "./ui.tsx";
+import { Button, ConfirmDialog, ErrorText, Input, PeerName, errorMessage } from "./ui.tsx";
+
+export interface Confirmation {
+  title: string;
+  message: React.ReactNode;
+  confirmLabel: string;
+  danger?: boolean;
+  onConfirm: () => Promise<void>;
+}
 
 export function Messenger({
   account,
@@ -33,6 +41,7 @@ export function Messenger({
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [balances, setBalances] = useState<{ XLM: string; USDC: string | null } | null>(null);
   const [dialog, setDialog] = useState<"pay" | "deal" | "settings" | null>(null);
+  const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [newPeer, setNewPeer] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -65,7 +74,8 @@ export function Messenger({
       const addr = newPeer.trim();
       if (!isAddress(addr)) throw new Error("Dirección Stellar inválida (empieza con G, 56 caracteres).");
       if (addr === me) throw new Error("Esa es tu propia dirección.");
-      await session.peerCert(addr);
+      // A blocked user opens straight away, showing the "blocked" notice.
+      if (!chats.blocked.includes(addr)) await chats.lookup(addr);
       setPeer(addr);
       setNewPeer("");
     });
@@ -78,6 +88,36 @@ export function Messenger({
     },
     [peer, chats, refreshBalances],
   );
+
+  const confirmBlock = (target: string) =>
+    setConfirmation({
+      title: "¿Bloquear a este usuario?",
+      message: (
+        <>
+          <PeerName address={target} alias={chats.aliasOf(target)} /> no podrá enviarte mensajes y se borrará
+          esta conversación de tu dispositivo y de tu nodo. Podrás desbloquearlo después.
+        </>
+      ),
+      confirmLabel: "Bloquear",
+      danger: true,
+      onConfirm: async () => {
+        await chats.block(target);
+        if (peer === target) setPeer(null);
+      },
+    });
+
+  const confirmUnblock = (target: string) =>
+    setConfirmation({
+      title: "¿Desbloquear a este usuario?",
+      message: (
+        <>
+          <PeerName address={target} alias={chats.aliasOf(target)} /> podrá volver a escribirte. Su primer mensaje
+          llegará como solicitud.
+        </>
+      ),
+      confirmLabel: "Desbloquear",
+      onConfirm: () => chats.unblock(target),
+    });
 
   const conversation = chats.conversations.find((c) => c.peer === peer);
   const requests = chats.conversations.filter((c) => c.request);
@@ -92,9 +132,10 @@ export function Messenger({
         <button
           onClick={() => navigator.clipboard.writeText(me)}
           title="Copiar mi dirección"
-          className="rounded-md bg-slate-900 px-2 py-1 font-mono text-xs text-slate-300 hover:bg-slate-800"
+          className="rounded-md bg-slate-900 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
         >
-          {short(me)} ⧉
+          {chats.myAlias && <span className="mr-1.5 font-medium text-slate-100">{chats.myAlias}</span>}
+          <span className="font-mono">{short(me)}</span> ⧉
         </button>
         <div className="ml-auto flex flex-wrap items-center gap-3 text-sm">
           {balances && (
@@ -138,11 +179,11 @@ export function Messenger({
               <div className="px-3 pt-3 text-xs uppercase tracking-wide text-amber-300">Solicitudes</div>
             )}
             {requests.map((c) => (
-              <ConversationItem key={c.peer} peer={c.peer} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
+              <ConversationItem key={c.peer} peer={c.peer} alias={chats.aliasOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
             ))}
             {normal.length > 0 && <div className="px-3 pt-3 text-xs uppercase tracking-wide text-slate-500">Chats</div>}
             {normal.map((c) => (
-              <ConversationItem key={c.peer} peer={c.peer} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
+              <ConversationItem key={c.peer} peer={c.peer} alias={chats.aliasOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
             ))}
             {chats.conversations.length === 0 && (
               <p className="p-4 text-sm text-slate-500">
@@ -157,6 +198,8 @@ export function Messenger({
             <ChatPane
               me={me}
               peer={peer}
+              alias={chats.aliasOf(peer)}
+              blocked={chats.blocked.includes(peer)}
               messages={conversation?.messages ?? []}
               request={conversation?.request ?? false}
               getWallet={getWallet}
@@ -164,7 +207,8 @@ export function Messenger({
               onSend={(text) => sendPayload({ t: "text", body: text })}
               onPayload={sendPayload}
               onAccept={() => chats.accept(peer)}
-              onBlock={async () => { await chats.block(peer); setPeer(null); }}
+              onBlock={() => confirmBlock(peer)}
+              onUnblock={() => confirmUnblock(peer)}
               onDelete={(ids) => chats.remove(peer, ids)}
               onPay={() => setDialog("pay")}
               onDeal={() => setDialog("deal")}
@@ -189,11 +233,16 @@ export function Messenger({
           settings={settings}
           onSettings={(s) => { setSettings(s); saveSettings(s); }}
           onClearHistory={chats.clearHistory}
+          myAlias={chats.myAlias}
+          onSetAlias={chats.setMyAlias}
+          blocked={chats.blocked.map((b) => ({ address: b, alias: chats.aliasOf(b) }))}
+          onUnblock={(b) => { setDialog(null); confirmUnblock(b); }}
           onPublishNode={async () => stellar.publishNode(me, account.session.homeNode, (await getWallet()).signTx)}
           onLogout={() => { clearAll(); onLogout(); }}
           onClose={() => setDialog(null)}
         />
       )}
+      {confirmation && <ConfirmDialog {...confirmation} onClose={() => setConfirmation(null)} />}
     </div>
   );
 }
@@ -210,12 +259,14 @@ function preview(m?: LocalMessage): string {
 
 function ConversationItem({
   peer,
+  alias,
   last,
   unread,
   active,
   onClick,
 }: {
   peer: string;
+  alias: string | null;
   last?: LocalMessage;
   unread: number;
   active: boolean;
@@ -227,7 +278,7 @@ function ConversationItem({
       className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-900 ${active ? "bg-slate-900" : ""}`}
     >
       <div className="min-w-0 flex-1">
-        <div className="font-mono text-sm">{short(peer)}</div>
+        <PeerName address={peer} alias={alias} className="max-w-full text-sm" />
         <div className="truncate text-xs text-slate-500">{preview(last)}</div>
       </div>
       {unread > 0 && <span className="rounded-full bg-emerald-500 px-2 text-xs text-slate-950">{unread}</span>}
@@ -238,6 +289,8 @@ function ConversationItem({
 function ChatPane(props: {
   me: string;
   peer: string;
+  alias: string | null;
+  blocked: boolean;
   messages: LocalMessage[];
   request: boolean;
   getWallet: () => Promise<Wallet>;
@@ -245,12 +298,13 @@ function ChatPane(props: {
   onSend: (text: string) => Promise<void>;
   onPayload: (p: Payload) => Promise<void>;
   onAccept: () => Promise<void>;
-  onBlock: () => Promise<void>;
+  onBlock: () => void;
+  onUnblock: () => void;
   onDelete: (ids: string[]) => Promise<{ unsent: number; kept: number }>;
   onPay: () => void;
   onDeal: () => void;
 }) {
-  const { me, peer, messages, request } = props;
+  const { me, peer, messages, request, blocked } = props;
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -301,22 +355,31 @@ function ChatPane(props: {
         <button onClick={props.onBack} className="text-slate-400 md:hidden">
           ←
         </button>
-        <span className="font-mono text-sm">{short(peer)}</span>
+        <PeerName address={peer} alias={props.alias} />
         <button onClick={() => navigator.clipboard.writeText(peer)} className="text-xs text-slate-500 hover:text-slate-300">
           copiar
         </button>
-        <div className="ml-auto flex gap-2">
-          <Button variant="ghost" onClick={props.onPay}>Pagar</Button>
-          <Button variant="ghost" onClick={props.onDeal}>Pago protegido</Button>
-          <Button variant="ghost" onClick={() => run(props.onBlock)} title="Bloquear">⛔</Button>
-        </div>
+        {!blocked && (
+          <div className="ml-auto flex gap-2">
+            <Button variant="ghost" onClick={props.onPay}>Pagar</Button>
+            <Button variant="ghost" onClick={props.onDeal}>Pago protegido</Button>
+            <Button variant="ghost" onClick={props.onBlock} title="Bloquear">⛔</Button>
+          </div>
+        )}
       </div>
 
-      {request && (
+      {blocked && (
+        <div className="flex flex-wrap items-center gap-2 border-b border-rose-900/50 bg-rose-950/30 px-4 py-2 text-sm">
+          <span className="text-rose-200">⛔ Tienes bloqueado a este usuario. No puede escribirte.</span>
+          <Button className="ml-auto" variant="ghost" onClick={props.onUnblock}>Desbloquear</Button>
+        </div>
+      )}
+
+      {request && !blocked && (
         <div className="flex flex-wrap items-center gap-2 border-b border-amber-900/50 bg-amber-950/30 px-4 py-2 text-sm">
           <span className="text-amber-200">Solicitud de mensaje de alguien que no conoces.</span>
           <Button className="ml-auto" disabled={busy} onClick={() => run(props.onAccept)}>Aceptar</Button>
-          <Button variant="danger" disabled={busy} onClick={() => run(props.onBlock)}>Bloquear</Button>
+          <Button variant="danger" disabled={busy} onClick={props.onBlock}>Bloquear</Button>
         </div>
       )}
 
@@ -383,8 +446,13 @@ function ChatPane(props: {
         }}
       >
         <div className="flex gap-2">
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder="Mensaje" disabled={busy} />
-          <Button type="submit" disabled={busy || !text.trim() || chars > MAX_MESSAGE_CHARS}>
+          <Input
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={blocked ? "Desbloquea para escribir" : "Mensaje"}
+            disabled={busy || blocked}
+          />
+          <Button type="submit" disabled={busy || blocked || !text.trim() || chars > MAX_MESSAGE_CHARS}>
             Enviar
           </Button>
         </div>

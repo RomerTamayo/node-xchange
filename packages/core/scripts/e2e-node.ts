@@ -99,4 +99,22 @@ await alice.deleteFromNode([msg.id]);
 assert.ok(!(await alice.inbox()).some((m) => m.id === msg.id));
 step("recipients can delete messages from their node");
 
+// 12. Aliases: signed by the device, visible to others, changeable, clearable.
+assert.equal((await alice.peer(bob.address)).alias, null);
+await bob.setAlias("  Bob   el vendedor ");
+assert.equal((await alice.peer(bob.address)).alias, "Bob el vendedor");
+await bob.setAlias("Roberto");
+assert.equal((await alice.peer(bob.address)).alias, "Roberto");
+await expectCode(bob.setAlias("x".repeat(25)), "bad_alias");
+await bob.setAlias(null);
+assert.equal((await alice.peer(bob.address)).alias, null);
+step("aliases can be set, changed and cleared");
+
+// 13. Unblocking restores messaging.
+await bob.setContact(alice.address, "blocked");
+await expectCode(alice.send(bob.address, { t: "text", body: "?" }), "blocked");
+await bob.setContact(alice.address, "none");
+await alice.send(bob.address, { t: "text", body: "gracias por desbloquearme" });
+step("unblocking lets the sender write again");
+
 console.log("\nall node checks passed");

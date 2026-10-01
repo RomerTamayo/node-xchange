@@ -3,6 +3,7 @@ import type { Payload, Session } from "@nodexchange/core";
 import { loadChats, purge, saveChats, type Chats, type LocalMessage } from "./store.ts";
 
 const POLL_MS = 4000;
+const ALIAS_TTL_MS = 60 * 1000;
 
 export interface Conversation {
   peer: string;
@@ -19,6 +20,7 @@ export function useChats(session: Session, volatile: boolean, openPeer: string |
   const [error, setError] = useState<string | null>(null);
   const chatsRef = useRef(chats);
   chatsRef.current = chats;
+  const aliasInFlight = useRef(new Set<string>());
 
   const update = useCallback(
     (fn: (c: Chats) => Chats) => {
@@ -83,6 +85,53 @@ export function useChats(session: Session, volatile: boolean, openPeer: string |
     session.ack([...ids]).catch(() => {});
   }, [openPeer, chats, session, update]);
 
+  /** Fetches the alias of `peer` from their node; throws if they aren't on NodeXchange. */
+  const lookup = useCallback(
+    async (peer: string) => {
+      const { alias } = await session.peer(peer);
+      update((c) => ({ ...c, aliases: { ...c.aliases, [peer]: { alias, at: Date.now() } } }));
+      return alias;
+    },
+    [session, update],
+  );
+
+  // Keep aliases of the people we talk to reasonably fresh.
+  const peers = [...Object.keys(chats.messages), ...(openPeer ? [openPeer] : [])];
+  const stalePeers = peers.filter((p) => {
+    const cached = chats.aliases[p];
+    return (!cached || cached.at + ALIAS_TTL_MS < Date.now()) && !aliasInFlight.current.has(p);
+  });
+  useEffect(() => {
+    for (const p of stalePeers) {
+      aliasInFlight.current.add(p);
+      lookup(p)
+        .catch(() =>
+          // Back off: keep whatever we had and retry after the TTL.
+          update((c) => ({
+            ...c,
+            aliases: { ...c.aliases, [p]: { alias: c.aliases[p]?.alias ?? null, at: Date.now() } },
+          })),
+        )
+        .finally(() => aliasInFlight.current.delete(p));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stalePeers.join(","), lookup, update]);
+
+  // Opening a chat always refreshes that person's alias.
+  useEffect(() => {
+    if (openPeer) lookup(openPeer).catch(() => {});
+  }, [openPeer, lookup]);
+
+  const aliasOf = useCallback((peer: string) => chats.aliases[peer]?.alias ?? null, [chats.aliases]);
+
+  const setMyAlias = useCallback(
+    async (alias: string | null) => {
+      const res = await session.setAlias(alias);
+      update((c) => ({ ...c, myAlias: res.alias }));
+    },
+    [session, update],
+  );
+
   const addOutgoing = useCallback(
     (peer: string, id: string, ts: number, payload: Payload) =>
       update((c) => ({
@@ -128,6 +177,14 @@ export function useChats(session: Session, volatile: boolean, openPeer: string |
         delete messages[peer];
         return { ...c, messages, blocked: [...c.blocked, peer], accepted: c.accepted.filter((p) => p !== peer) };
       });
+    },
+    [session, update],
+  );
+
+  const unblock = useCallback(
+    async (peer: string) => {
+      await session.setContact(peer, "none");
+      update((c) => ({ ...c, blocked: c.blocked.filter((p) => p !== peer) }));
     },
     [session, update],
   );
@@ -179,5 +236,21 @@ export function useChats(session: Session, volatile: boolean, openPeer: string |
     }))
     .sort((a, b) => b.last - a.last);
 
-  return { conversations, error, send, addOutgoing, accept, block, remove, clearHistory, poll };
+  return {
+    conversations,
+    error,
+    blocked: chats.blocked,
+    myAlias: chats.myAlias,
+    aliasOf,
+    lookup,
+    setMyAlias,
+    send,
+    addOutgoing,
+    accept,
+    block,
+    unblock,
+    remove,
+    clearHistory,
+    poll,
+  };
 }
