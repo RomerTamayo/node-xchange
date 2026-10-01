@@ -41,7 +41,7 @@ export const TESTNET: NetworkConfig = {
     sac: "CBIELTK6YBZJU5UP2WWQEUCYKLPU6AUNZ2BQ4WWFEIE3USCIHMXQDAMA",
   },
   xlmSac: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
-  escrow: "CCQ5IBINEVNEYAHRENMIEPQFPXM2Q7TLUSFCKRXGHODLAIV6AWGR4KCB",
+  escrow: "CAUDG4P37366J335GKBVOG35MPUQ4RDDLL7DJUJSUMOCEVORISPB3UPP",
   // stellar.expert's testnet index is lagging (Oct 2026); stellarchain shows new txs.
   explorerTx: "https://testnet.stellarchain.io/transactions/",
 };
@@ -59,6 +59,18 @@ export function keypairTxSigner(secret: string): TxSigner {
     return tx.toXDR();
   };
 }
+
+/**
+ * Highest transfer fee a client accepts from a node (1%). Nodes advertise their
+ * own fee, so without a cap a malicious node could take any share of a payment.
+ */
+export const MAX_TRANSFER_FEE_BPS = 100;
+
+/**
+ * Longest escrow term. The contract keeps a deal's data alive for ~60 days
+ * without renewal, so terms stay well inside that.
+ */
+export const MAX_DEAL_DAYS = 30;
 
 /** Operator fee on direct transfers (0 by default: fees come from escrow deals). */
 export interface TransferFee {
@@ -175,6 +187,9 @@ export class Stellar {
     memo?: string;
     fee?: TransferFee;
   }): Promise<{ hash: string; fee: string }> {
+    if (opts.fee && (opts.fee.bps < 0 || opts.fee.bps > MAX_TRANSFER_FEE_BPS)) {
+      throw new Error(`node fee of ${opts.fee.bps / 100}% exceeds the ${MAX_TRANSFER_FEE_BPS / 100}% maximum`);
+    }
     const asset = this.asset(opts.asset);
     const feeAmount = opts.fee?.bps ? feeOf(opts.amount, opts.fee.bps) : "0";
     const hash = await this.submit(
@@ -217,6 +232,9 @@ export class Stellar {
     days: number;
     signer: TxSigner;
   }): Promise<{ dealId: string; hash: string }> {
+    if (!(opts.days >= 1 && opts.days <= MAX_DEAL_DAYS)) {
+      throw new Error(`deal term must be between 1 and ${MAX_DEAL_DAYS} days`);
+    }
     const client = await this.escrowClient(opts.buyer, opts.signer);
     const tx = await client.create({
       buyer: opts.buyer,
@@ -252,6 +270,18 @@ export class Stellar {
     });
     const tx = await client.get_deal({ id: BigInt(dealId) });
     return unwrap(tx.result);
+  }
+
+  /** Every deal `user` takes part in (as buyer or seller), newest first. */
+  async dealsOf(user: string): Promise<{ id: string; deal: Deal }[]> {
+    const client = await this.escrowClient(user, async () => {
+      throw new Error("read-only");
+    });
+    const ids = (await client.deals_of({ user })).result;
+    const deals = await Promise.all(
+      [...ids].reverse().map(async (id) => ({ id: id.toString(), deal: await this.getDeal(id.toString(), user) })),
+    );
+    return deals;
   }
 
   // --- receipts -------------------------------------------------------------
@@ -323,6 +353,7 @@ interface EscrowContract {
   cancel(args: { id: bigint }): Tx<Res<void>>;
   reclaim(args: { id: bigint }): Tx<Res<void>>;
   get_deal(args: { id: bigint }): Tx<Res<Deal>>;
+  deals_of(args: { user: string }): Tx<bigint[]>;
 }
 
 function unwrap<T>(r: Res<T>): T {

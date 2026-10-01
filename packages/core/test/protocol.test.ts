@@ -127,3 +127,15 @@ test("profiles verify only with the signing device", async () => {
   assert.equal(verifyProfile(cert, { req: forged, sig: signed.sig }), null);
   assert.equal(verifyProfile(cert, null), null);
 });
+
+test("a node cannot replay a message under a new id or date", async () => {
+  const alice = await user();
+  const bob = await user();
+  const env = sealPayload(alice.keys, alice.address, parseCertBody(bob.cert.body), { t: "text", body: "hola" });
+  assert.deepEqual(await openEnvelope(bob.keys, env, alice.cert), { t: "text", body: "hola" });
+
+  const replayed = { ...env, id: crypto.randomUUID() };
+  await assert.rejects(openEnvelope(bob.keys, replayed, alice.cert), /sealed id/);
+  const redated = { ...env, ts: env.ts + 86_400_000 };
+  await assert.rejects(openEnvelope(bob.keys, redated, alice.cert), /sealed id/);
+});

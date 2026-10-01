@@ -139,3 +139,20 @@ fn release_requires_buyer_auth() {
     assert_eq!(auths.len(), 1);
     assert_eq!(auths[0].0, s.buyer);
 }
+
+#[test]
+fn deals_are_indexed_for_both_parties() {
+    let s = setup();
+    let a = create_deal(&s, 1_000);
+    let b = create_deal(&s, 2_000);
+    let stranger = Address::generate(&s.env);
+
+    assert_eq!(s.escrow.deals_of(&s.buyer), soroban_sdk::vec![&s.env, a, b]);
+    assert_eq!(s.escrow.deals_of(&s.seller), soroban_sdk::vec![&s.env, a, b]);
+    assert_eq!(s.escrow.deals_of(&stranger).len(), 0);
+
+    // Settling keeps the deal listed, with its final status.
+    s.escrow.release(&a);
+    assert_eq!(s.escrow.deals_of(&s.buyer).len(), 2);
+    assert_eq!(s.escrow.get_deal(&a).status, Status::Released);
+}

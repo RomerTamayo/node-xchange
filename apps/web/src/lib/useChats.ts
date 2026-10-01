@@ -146,8 +146,10 @@ export function useChats(session: Session, volatile: boolean, openPeer: string |
 
   const send = useCallback(
     async (peer: string, payload: Payload) => {
-      // Writing to someone accepts their replies, even if they live on another node.
-      if (!chatsRef.current.accepted.includes(peer)) {
+      // Writing to someone accepts their replies, even if they live on another node
+      // (but never silently lifts a block: e.g. an automatic escrow notice).
+      const { accepted, blocked } = chatsRef.current;
+      if (!accepted.includes(peer) && !blocked.includes(peer)) {
         await session.setContact(peer, "accepted");
         update((c) => ({ ...c, accepted: [...c.accepted, peer] }));
       }

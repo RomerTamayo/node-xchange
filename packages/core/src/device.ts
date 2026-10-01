@@ -17,6 +17,13 @@ import {
   type SignedRequest,
 } from "./protocol.ts";
 
+/** What is actually encrypted: the payload bound to its envelope id and date. */
+interface SealedPayload {
+  id: string;
+  ts: number;
+  p: Payload;
+}
+
 /** Serializable device secrets (keep them in local storage / a local file). */
 export interface DeviceKeys {
   signSecret: string; // base64, 64 bytes
@@ -78,19 +85,24 @@ export function sealPayload(
   if (payload.t === "text" && [...payload.body].length > MAX_MESSAGE_CHARS) {
     throw new ProtocolError("too_long", `messages are limited to ${MAX_MESSAGE_CHARS} characters`);
   }
+  const id = crypto.randomUUID();
+  const ts = Date.now();
   const nonce = nacl.randomBytes(nacl.box.nonceLength);
+  // id and ts go inside the ciphertext too, so a node can't replay an old
+  // message under a new id or date.
+  const sealed: SealedPayload = { id, ts, p: payload };
   const box = nacl.box(
-    utf8(JSON.stringify(payload)),
+    utf8(JSON.stringify(sealed)),
     nonce,
     fromBase64(to.boxPub),
     fromBase64(keys.boxSecret),
   );
   if (box.length > MAX_BOX_BYTES) throw new ProtocolError("too_long", "payload too large");
   return {
-    id: crypto.randomUUID(),
+    id,
     from,
     to: to.address,
-    ts: Date.now(),
+    ts,
     nonce: toBase64(nonce),
     box: toBase64(box),
   };
@@ -113,5 +125,9 @@ export async function openEnvelope(
     fromBase64(keys.boxSecret),
   );
   if (!plain) throw new ProtocolError("bad_envelope", "cannot decrypt message");
-  return JSON.parse(fromUtf8(plain)) as Payload;
+  const sealed = JSON.parse(fromUtf8(plain)) as SealedPayload;
+  if (sealed.id !== envelope.id || sealed.ts !== envelope.ts || !sealed.p) {
+    throw new ProtocolError("bad_envelope", "envelope does not match its sealed id/date");
+  }
+  return sealed.p;
 }

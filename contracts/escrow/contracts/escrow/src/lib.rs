@@ -8,7 +8,7 @@
 
 use soroban_sdk::{
     contract, contracterror, contractevent, contractimpl, contracttype, token::TokenClient,
-    Address, Env,
+    Address, Env, Vec,
 };
 
 const MAX_FEE_BPS: u32 = 1_000; // 10%
@@ -27,6 +27,8 @@ enum DataKey {
     FeeBps,
     NextId,
     Deal(u64),
+    /// Ids of the deals a user takes part in, so any device can find them.
+    UserDeals(Address),
 }
 
 #[contracttype]
@@ -145,6 +147,8 @@ impl Escrow {
             status: Status::Funded,
         };
         save_deal(&env, id, &deal);
+        index_deal(&env, &buyer, id);
+        index_deal(&env, &seller, id);
 
         DealCreated { id, buyer, seller, token, amount }.publish(&env);
         Ok(id)
@@ -189,6 +193,14 @@ impl Escrow {
         load_deal(&env, id)
     }
 
+    /// Deal ids where `user` is the buyer or the seller, oldest first.
+    pub fn deals_of(env: Env, user: Address) -> Vec<u64> {
+        env.storage()
+            .persistent()
+            .get(&DataKey::UserDeals(user))
+            .unwrap_or(Vec::new(&env))
+    }
+
     pub fn fee_bps(env: Env) -> u32 {
         env.storage().instance().get(&DataKey::FeeBps).unwrap_or(0)
     }
@@ -212,6 +224,16 @@ fn funded_deal(env: &Env, id: u64) -> Result<Deal, Error> {
 fn save_deal(env: &Env, id: u64, deal: &Deal) {
     let key = DataKey::Deal(id);
     env.storage().persistent().set(&key, deal);
+    env.storage()
+        .persistent()
+        .extend_ttl(&key, DEAL_THRESHOLD, DEAL_BUMP);
+}
+
+fn index_deal(env: &Env, user: &Address, id: u64) {
+    let key = DataKey::UserDeals(user.clone());
+    let mut ids: Vec<u64> = env.storage().persistent().get(&key).unwrap_or(Vec::new(env));
+    ids.push_back(id);
+    env.storage().persistent().set(&key, &ids);
     env.storage()
         .persistent()
         .extend_ttl(&key, DEAL_THRESHOLD, DEAL_BUMP);

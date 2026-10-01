@@ -11,7 +11,7 @@ import { stellar } from "../lib/config.ts";
 import { clearAll, loadSettings, saveSettings, type Account, type LocalMessage } from "../lib/store.ts";
 import { useChats } from "../lib/useChats.ts";
 import { connectExternal, short, type Wallet } from "../lib/wallet.ts";
-import { DealCard, DealDialog, PayDialog, ReceiptLinks } from "./Payments.tsx";
+import { DealCard, DealDialog, DealsPanel, PayDialog, ReceiptLinks } from "./Payments.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
 import { Button, ConfirmDialog, ErrorText, Input, PeerName, errorMessage } from "./ui.tsx";
 
@@ -40,7 +40,7 @@ export function Messenger({
   const [wallet, setWallet] = useState<Wallet | null>(initialWallet);
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [balances, setBalances] = useState<{ XLM: string; USDC: string | null } | null>(null);
-  const [dialog, setDialog] = useState<"pay" | "deal" | "settings" | null>(null);
+  const [dialog, setDialog] = useState<"pay" | "deal" | "deals" | "settings" | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [newPeer, setNewPeer] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -158,6 +158,9 @@ export function Messenger({
               )}
             </>
           )}
+          <Button variant="ghost" onClick={() => setDialog("deals")}>
+            Pagos protegidos
+          </Button>
           <Button variant="ghost" onClick={() => setDialog("settings")}>
             Ajustes
           </Button>
@@ -226,6 +229,18 @@ export function Messenger({
       )}
       {dialog === "deal" && peer && (
         <DealDialog me={me} peer={peer} node={node} getWallet={getWallet} onDone={sendPayload} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "deals" && (
+        <DealsPanel
+          me={me}
+          getWallet={getWallet}
+          aliasOf={chats.aliasOf}
+          notify={async (to, payload) => {
+            await chats.send(to, payload);
+            refreshBalances();
+          }}
+          onClose={() => setDialog(null)}
+        />
       )}
       {dialog === "settings" && (
         <SettingsDialog
