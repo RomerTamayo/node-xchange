@@ -27,6 +27,7 @@ import {
 import { stellar } from "../lib/config.ts";
 import { locale, t, useLang } from "../lib/i18n.ts";
 import { clearAll, loadSettings, saveSettings, type Account, type LocalMessage } from "../lib/store.ts";
+import type { Unlocked } from "../lib/vault.ts";
 import { useChats } from "../lib/useChats.ts";
 import { connectExternal, short, type Wallet } from "../lib/wallet.ts";
 import { DealCard, DealDialog, DealsPanel, PayDialog, ReceiptLinks, WithdrawDialog } from "./Payments.tsx";
@@ -78,22 +79,25 @@ function Avatar({ address, alias, size = "md" }: { address: string; alias: strin
 
 export function Messenger({
   account,
+  unlocked,
   wallet: initialWallet,
   onLogout,
   onLock,
 }: {
   account: Account;
+  /** Device keys and data key, decrypted from the vault. */
+  unlocked: Unlocked;
   wallet: Wallet | null;
   onLogout: () => void;
   /** Back to the password screen, keeping all data. */
   onLock: () => void;
 }) {
   useLang();
-  const session = useMemo(() => new Session(account.session, stellar), [account]);
+  const session = useMemo(() => new Session(unlocked.state, stellar), [unlocked]);
   const me = session.address;
   const [settings, setSettings] = useState(loadSettings);
   const [peer, setPeer] = useState<string | null>(null);
-  const chats = useChats(session, settings.volatile, peer);
+  const chats = useChats(session, unlocked.dataKey, settings.volatile, peer);
   const [wallet, setWallet] = useState<Wallet | null>(initialWallet);
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [balances, setBalances] = useState<{ XLM: string; USDC: string | null } | null>(null);

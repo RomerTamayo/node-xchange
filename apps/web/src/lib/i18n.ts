@@ -31,6 +31,8 @@ const es = {
   stepFund: "Activando tu cuenta en testnet…",
   stepAuthorize: "Autorizando este dispositivo para chatear…",
   stepRegister: "Registrándote en el nodo…",
+  stepVault: "Cifrando tus llaves en este dispositivo…",
+  vaultError: "No se pudieron descifrar los datos de este dispositivo con esta billetera.",
   stepPickWallet: "Elige tu billetera…",
   backupTitle: "Guarda tu clave secreta",
   backupBody:
@@ -264,6 +266,8 @@ const en: Record<Key, string> = {
   stepFund: "Activating your account on testnet…",
   stepAuthorize: "Authorizing this device to chat…",
   stepRegister: "Registering you on the node…",
+  stepVault: "Encrypting your keys on this device…",
+  vaultError: "This wallet couldn't decrypt the data stored on this device.",
   stepPickWallet: "Choose your wallet…",
   backupTitle: "Save your secret key",
   backupBody:

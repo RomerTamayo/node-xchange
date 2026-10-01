@@ -14,9 +14,13 @@ export interface Conversation {
   request: boolean;
 }
 
-export function useChats(session: Session, volatile: boolean, openPeer: string | null) {
+export function useChats(session: Session, dataKey: Uint8Array, volatile: boolean, openPeer: string | null) {
   const me = session.address;
-  const [chats, setChats] = useState<Chats>(() => purge(loadChats(me), volatile));
+  const [chats, setChats] = useState<Chats>(() => {
+    const loaded = purge(loadChats(me, dataKey), volatile);
+    saveChats(me, dataKey, loaded); // seals data left in plaintext by older versions
+    return loaded;
+  });
   const [error, setError] = useState<string | null>(null);
   const chatsRef = useRef(chats);
   chatsRef.current = chats;
@@ -26,11 +30,11 @@ export function useChats(session: Session, volatile: boolean, openPeer: string |
     (fn: (c: Chats) => Chats) => {
       setChats((prev) => {
         const next = fn(prev);
-        saveChats(me, next);
+        saveChats(me, dataKey, next);
         return next;
       });
     },
-    [me],
+    [me, dataKey],
   );
 
   // Poll the inbox and merge new messages.

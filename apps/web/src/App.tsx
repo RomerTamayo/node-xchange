@@ -3,22 +3,19 @@ import { Messenger } from "./components/Messenger.tsx";
 import { Onboarding, Shell } from "./components/Onboarding.tsx";
 import { Button, ErrorText, Field, Input, errorMessage } from "./components/ui.tsx";
 import { t, useLang } from "./lib/i18n.ts";
-import { clearAll, isLocked, loadAccount, setLocked, type Account } from "./lib/store.ts";
-import { connectExternal, decryptSecret, localWallet, short, type Wallet } from "./lib/wallet.ts";
+import { clearAll, loadAccount, saveAccount, type Account } from "./lib/store.ts";
+import { unlockVault, type Unlocked } from "./lib/vault.ts";
+import { PBKDF2_ROUNDS, connectExternal, decryptSecret, encryptSecret, localWallet, short, type Wallet } from "./lib/wallet.ts";
 
 type Phase =
   | { k: "onboarding" }
   | { k: "locked"; account: Account }
-  | { k: "ready"; account: Account; wallet: Wallet | null };
+  | { k: "ready"; account: Account; unlocked: Unlocked; wallet: Wallet | null };
 
+// Keys and history are encrypted at rest, so every visit starts locked.
 function initialPhase(): Phase {
   const account = loadAccount();
-  if (!account) return { k: "onboarding" };
-  // A built-in wallet always starts locked (its secret is only kept in memory).
-  // External wallets reconnect only when a payment needs signing, unless the
-  // user locked the session.
-  if (account.wallet.kind === "external" && !isLocked()) return { k: "ready", account, wallet: null };
-  return { k: "locked", account };
+  return account ? { k: "locked", account } : { k: "onboarding" };
 }
 
 export function App() {
@@ -26,16 +23,13 @@ export function App() {
   const [phase, setPhase] = useState<Phase>(initialPhase);
 
   if (phase.k === "onboarding") {
-    return <Onboarding onReady={(account, wallet) => setPhase({ k: "ready", account, wallet })} />;
+    return <Onboarding onReady={(account, wallet, unlocked) => setPhase({ k: "ready", account, wallet, unlocked })} />;
   }
   if (phase.k === "locked") {
     return (
       <Unlock
         account={phase.account}
-        onUnlock={(wallet) => {
-          setLocked(false);
-          setPhase({ k: "ready", account: phase.account, wallet });
-        }}
+        onUnlock={(account, wallet, unlocked) => setPhase({ k: "ready", account, wallet, unlocked })}
         onReset={() => {
           clearAll();
           setPhase({ k: "onboarding" });
@@ -47,12 +41,11 @@ export function App() {
     <Messenger
       key={phase.account.session.address}
       account={phase.account}
+      unlocked={phase.unlocked}
       wallet={phase.wallet}
       onLogout={() => setPhase({ k: "onboarding" })}
-      onLock={() => {
-        setLocked(true);
-        setPhase({ k: "locked", account: phase.account });
-      }}
+      // Dropping `unlocked` from state forgets the decrypted keys.
+      onLock={() => setPhase({ k: "locked", account: phase.account })}
     />
   );
 }
@@ -63,7 +56,7 @@ function Unlock({
   onReset,
 }: {
   account: Account;
-  onUnlock: (w: Wallet) => void;
+  onUnlock: (account: Account, wallet: Wallet, unlocked: Unlocked) => void;
   onReset: () => void;
 }) {
   const [password, setPassword] = useState("");
@@ -76,14 +69,36 @@ function Unlock({
     setBusy(true);
     setError(null);
     try {
-      if (account.wallet.kind === "local") {
-        const secret = await decryptSecret(account.wallet.secret, password);
-        if (secret) onUnlock(localWallet(secret));
-        else setError(t("wrongPassword"));
+      let current = account;
+      let wallet: Wallet;
+      if (current.wallet.kind === "local") {
+        const secret = await decryptSecret(current.wallet.secret, password);
+        if (!secret) {
+          setError(t("wrongPassword"));
+          return;
+        }
+        wallet = localWallet(secret);
+        // Re-encrypt secrets saved with the old, weaker key derivation.
+        if ((current.wallet.secret.iter ?? 0) < PBKDF2_ROUNDS) {
+          current = { ...current, wallet: { kind: "local", secret: await encryptSecret(secret, password) } };
+          saveAccount(current);
+        }
       } else {
         // Proves the person at the keyboard controls the account's wallet.
-        onUnlock(await connectExternal(account.session.address));
+        wallet = await connectExternal(current.session.address);
       }
+
+      const opened = await unlockVault(current, wallet);
+      if (!opened) {
+        setError(t("vaultError"));
+        return;
+      }
+      if (opened.migrated) {
+        // Legacy plaintext keys are replaced by the sealed record.
+        current = opened.migrated;
+        saveAccount(current);
+      }
+      onUnlock(current, wallet, opened.unlocked);
     } catch (e) {
       setError(errorMessage(e));
     } finally {

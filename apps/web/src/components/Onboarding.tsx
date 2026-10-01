@@ -5,12 +5,16 @@ import { Session } from "@nodexchange/core";
 import { NODE_URL, stellar } from "../lib/config.ts";
 import { t, useLang, type Key } from "../lib/i18n.ts";
 import { saveAccount, type Account } from "../lib/store.ts";
+import { createVault, type Unlocked } from "../lib/vault.ts";
 import { connectExternal, encryptSecret, localWallet, type Wallet } from "../lib/wallet.ts";
 import { Button, ErrorText, Field, Input, LangToggle, Logo, errorMessage } from "./ui.tsx";
 
 type Tab = "create" | "import" | "external";
 
-/** Funds the account on testnet if needed and registers this device on the node. */
+/**
+ * Funds the account on testnet if needed, registers this device on the node
+ * and stores its keys encrypted (sealed by the wallet).
+ */
 async function signUp(wallet: Wallet, walletRecord: Account["wallet"], onStep: (s: Key) => void) {
   if (!(await stellar.account(wallet.address))) {
     onStep("stepFund");
@@ -20,9 +24,10 @@ async function signUp(wallet: Wallet, walletRecord: Account["wallet"], onStep: (
   const session = await Session.create(wallet.address, NODE_URL, wallet.signMessage, stellar);
   onStep("stepRegister");
   await session.register();
-  const account: Account = { session: session.state, wallet: walletRecord };
+  onStep("stepVault");
+  const { account, unlocked } = await createVault(session.state, wallet, walletRecord);
   saveAccount(account);
-  return account;
+  return { account, unlocked };
 }
 
 const TABS: { id: Tab; label: Key; icon: ReactNode }[] = [
@@ -31,7 +36,7 @@ const TABS: { id: Tab; label: Key; icon: ReactNode }[] = [
   { id: "external", label: "tabExternal", icon: <WalletIcon size={15} /> },
 ];
 
-export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => void }) {
+export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet, u: Unlocked) => void }) {
   useLang();
   const [tab, setTab] = useState<Tab>("create");
   const [secret, setSecret] = useState("");
@@ -39,7 +44,9 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
   const [confirm, setConfirm] = useState("");
   const [step, setStep] = useState<Key | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [backup, setBackup] = useState<{ account: Account; wallet: Wallet; secret: string } | null>(null);
+  const [backup, setBackup] = useState<{ account: Account; wallet: Wallet; unlocked: Unlocked; secret: string } | null>(
+    null,
+  );
   const [saved, setSaved] = useState(false);
 
   const busy = step !== null;
@@ -63,17 +70,17 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
       setStep("stepEncrypt");
       const wallet = localWallet(kpSecret);
       const enc = await encryptSecret(kpSecret, password);
-      const account = await signUp(wallet, { kind: "local", secret: enc }, setStep);
-      if (tab === "create") setBackup({ account, wallet, secret: kpSecret });
-      else onReady(account, wallet);
+      const { account, unlocked } = await signUp(wallet, { kind: "local", secret: enc }, setStep);
+      if (tab === "create") setBackup({ account, wallet, unlocked, secret: kpSecret });
+      else onReady(account, wallet, unlocked);
     });
 
   const connect = () =>
     run(async () => {
       setStep("stepPickWallet");
       const wallet = await connectExternal();
-      const account = await signUp(wallet, { kind: "external" }, setStep);
-      onReady(account, wallet);
+      const { account, unlocked } = await signUp(wallet, { kind: "external" }, setStep);
+      onReady(account, wallet, unlocked);
     });
 
   if (backup) {
@@ -88,7 +95,7 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
           <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
           {t("backupSaved")}
         </label>
-        <Button disabled={!saved} onClick={() => onReady(backup.account, backup.wallet)} className="w-full">
+        <Button disabled={!saved} onClick={() => onReady(backup.account, backup.wallet, backup.unlocked)} className="w-full">
           {t("enter")}
         </Button>
       </Shell>

@@ -2,6 +2,7 @@
 // history lives here, and by default it is volatile too (see `purge`).
 
 import { READ_TTL_MS, UNREAD_TTL_MS, type Payload, type SessionState } from "@nodexchange/core";
+import { isSealed, open, seal, type Sealed, type WrappedKey } from "./vault.ts";
 import type { EncryptedSecret } from "./wallet.ts";
 
 const PREFIX = "nx:v1";
@@ -26,16 +27,16 @@ function write(key: string, value: unknown) {
 // --- account ----------------------------------------------------------------
 
 export interface Account {
-  session: SessionState;
+  /** Public part of the session; the device keys live sealed in `sealedKeys`. */
+  session: Omit<SessionState, "keys">;
+  /** Data key wrapped by the wallet (see vault.ts). Absent on legacy accounts. */
+  vault?: WrappedKey;
+  sealedKeys?: Sealed;
   wallet: { kind: "local"; secret: EncryptedSecret } | { kind: "external" };
 }
 
 export const loadAccount = () => read<Account | null>("account", null);
 export const saveAccount = (a: Account) => write("account", a);
-
-/** "Locked" survives reloads, so an external-wallet session stays locked too. */
-export const isLocked = () => read<boolean>("locked", false);
-export const setLocked = (locked: boolean) => write("locked", locked);
 
 // --- settings ---------------------------------------------------------------
 
@@ -81,12 +82,19 @@ const emptyChats = (): Chats => ({
   myAlias: null,
 });
 
-// Spread over defaults so data saved by older versions gains new fields.
-export const loadChats = (address: string): Chats => ({
-  ...emptyChats(),
-  ...read<Partial<Chats>>(`chats:${address}`, {}),
-});
-export const saveChats = (address: string, c: Chats) => write(`chats:${address}`, c);
+/**
+ * Chats are stored sealed with the vault's data key. Plaintext data written by
+ * versions before encryption is still read, and gets sealed on the next save.
+ * Spread over defaults so data saved by older versions gains new fields.
+ */
+export function loadChats(address: string, dataKey: Uint8Array): Chats {
+  const raw = read<unknown>(`chats:${address}`, null);
+  const stored = isSealed(raw) ? open<Partial<Chats>>(dataKey, raw) : (raw as Partial<Chats> | null);
+  return { ...emptyChats(), ...(stored ?? {}) };
+}
+
+export const saveChats = (address: string, dataKey: Uint8Array, c: Chats) =>
+  write(`chats:${address}`, seal(dataKey, c));
 
 /** Drops expired local copies (when volatile) and old tombstones. */
 export function purge(chats: Chats, volatile: boolean, now = Date.now()): Chats {
