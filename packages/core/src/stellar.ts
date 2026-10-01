@@ -24,7 +24,8 @@ export interface NetworkConfig {
   usdc: { code: "USDC"; issuer: string; sac: string };
   xlmSac: string;
   escrow: string;
-  explorer: string;
+  /** Transaction page of a block explorer; the hash is appended. */
+  explorerTx: string;
 }
 
 export const TESTNET: NetworkConfig = {
@@ -41,7 +42,8 @@ export const TESTNET: NetworkConfig = {
   },
   xlmSac: "CDLZFC3SYJYDZT7K67VZ75HPJVIEUVNIXF47ZG2FB2RMQQVU2HHGCYSC",
   escrow: "CCQ5IBINEVNEYAHRENMIEPQFPXM2Q7TLUSFCKRXGHODLAIV6AWGR4KCB",
-  explorer: "https://stellar.expert/explorer/testnet",
+  // stellar.expert's testnet index is lagging (Oct 2026); stellarchain shows new txs.
+  explorerTx: "https://testnet.stellarchain.io/transactions/",
 };
 
 export type AssetCode = "XLM" | "USDC";
@@ -82,7 +84,7 @@ export class Stellar {
   }
 
   txUrl(hash: string): string {
-    return `${this.net.explorer}/tx/${hash}`;
+    return `${this.net.explorerTx}${hash}`;
   }
 
   async fund(address: string): Promise<void> {
