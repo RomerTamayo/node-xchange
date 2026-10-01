@@ -3,9 +3,9 @@ import { useState, type ButtonHTMLAttributes, type InputHTMLAttributes, type Rea
 type Variant = "primary" | "ghost" | "danger";
 
 const variants: Record<Variant, string> = {
-  primary: "bg-emerald-500 text-slate-950 hover:bg-emerald-400",
-  ghost: "bg-slate-800 text-slate-100 hover:bg-slate-700",
-  danger: "bg-rose-600 text-white hover:bg-rose-500",
+  primary: "bg-mint-400 text-ink-950 hover:bg-mint-300",
+  ghost: "bg-ink-800 text-ink-100 hover:bg-ink-700",
+  danger: "bg-pink-400 text-ink-950 hover:bg-pink-300",
 };
 
 export function Button({
@@ -25,7 +25,7 @@ export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInpu
   return (
     <input
       {...props}
-      className={`w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm outline-none focus:border-emerald-500 ${className}`}
+      className={`w-full rounded-lg border border-ink-700 bg-ink-900 px-3 py-2 text-base outline-none focus:border-lilac-400 sm:text-sm ${className}`}
     />
   );
 }
@@ -33,9 +33,9 @@ export function Input({ className = "", ...props }: InputHTMLAttributes<HTMLInpu
 export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
   return (
     <label className="block space-y-1">
-      <span className="text-xs font-medium text-slate-400">{label}</span>
+      <span className="text-xs font-medium text-ink-400">{label}</span>
       {children}
-      {hint && <span className="block text-xs text-slate-500">{hint}</span>}
+      {hint && <span className="block text-xs text-ink-500">{hint}</span>}
     </label>
   );
 }
@@ -50,14 +50,14 @@ export function Modal({
   children: ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-3 sm:p-4" onClick={onClose}>
       <div
-        className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl"
+        className="max-h-[90vh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl border border-ink-800 bg-ink-900 p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{title}</h2>
-          <button onClick={onClose} className="text-slate-500 hover:text-slate-300" aria-label="Cerrar">
+          <button onClick={onClose} className="text-ink-500 hover:text-ink-300" aria-label="Cerrar">
             ✕
           </button>
         </div>
@@ -68,7 +68,7 @@ export function Modal({
 }
 
 export function ErrorText({ error }: { error: string | null }) {
-  return error ? <p className="text-sm text-rose-400">{error}</p> : null;
+  return error ? <p className="text-sm text-pink-400">{error}</p> : null;
 }
 
 export function errorMessage(e: unknown): string {
@@ -112,7 +112,7 @@ export function ConfirmDialog({
 
   return (
     <Modal title={title} onClose={onClose}>
-      <div className="text-sm text-slate-300">{message}</div>
+      <div className="text-sm text-ink-300">{message}</div>
       <ErrorText error={error} />
       <div className="flex gap-2">
         <Button variant="ghost" className="flex-1" onClick={onClose} disabled={busy}>
@@ -132,7 +132,7 @@ export function PeerName({ address, alias, className = "" }: { address: string; 
   return (
     <span className={`inline-flex min-w-0 items-baseline gap-1.5 ${className}`}>
       {alias && <span className="truncate font-medium">{alias}</span>}
-      <span className={`shrink-0 font-mono ${alias ? "text-xs text-slate-500" : "text-sm"}`}>{short}</span>
+      <span className={`shrink-0 font-mono ${alias ? "text-xs text-ink-500" : "text-sm"}`}>{short}</span>
     </span>
   );
 }

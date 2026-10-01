@@ -124,25 +124,25 @@ export function Messenger({
   const normal = chats.conversations.filter((c) => !c.request);
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex flex-wrap items-center gap-3 border-b border-slate-800 px-4 py-3">
+    <div className="flex h-dvh flex-col">
+      <header className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-ink-800 px-3 py-2 sm:px-4 sm:py-3">
         <h1 className="text-lg font-bold">
-          Node<span className="text-emerald-400">X</span>change
+          Node<span className="text-lilac-400">X</span>change
         </h1>
         <button
           onClick={() => navigator.clipboard.writeText(me)}
           title="Copiar mi dirección"
-          className="rounded-md bg-slate-900 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800"
+          className="flex min-w-0 items-center rounded-md bg-ink-900 px-2 py-1 text-xs text-ink-300 hover:bg-ink-800"
         >
-          {chats.myAlias && <span className="mr-1.5 font-medium text-slate-100">{chats.myAlias}</span>}
+          {chats.myAlias && <span className="mr-1.5 max-w-[9rem] truncate font-medium text-ink-100">{chats.myAlias}</span>}
           <span className="font-mono">{short(me)}</span> ⧉
         </button>
-        <div className="ml-auto flex flex-wrap items-center gap-3 text-sm">
+        <div className="flex w-full flex-wrap items-center gap-2 text-sm sm:ml-auto sm:w-auto sm:gap-3">
           {balances && (
             <>
-              <span>{Number(balances.XLM).toFixed(2)} XLM</span>
+              <span className="text-xs text-ink-200 sm:text-sm">{Number(balances.XLM).toFixed(2)} XLM</span>
               {balances.USDC !== null ? (
-                <span>{Number(balances.USDC).toFixed(2)} USDC</span>
+                <span className="text-xs text-ink-200 sm:text-sm">{Number(balances.USDC).toFixed(2)} USDC</span>
               ) : (
                 <Button
                   variant="ghost"
@@ -152,44 +152,50 @@ export function Messenger({
                 </Button>
               )}
               {Number(balances.XLM) < 5 && (
-                <Button variant="ghost" onClick={() => run(async () => { await stellar.fund(me); refreshBalances(); })}>
-                  Fondear (testnet)
+                <Button
+                  variant="ghost"
+                  aria-label="Fondear (testnet)"
+                  onClick={() => run(async () => { await stellar.fund(me); refreshBalances(); })}
+                >
+                  Fondear<span className="hidden sm:inline"> (testnet)</span>
                 </Button>
               )}
             </>
           )}
-          <Button variant="ghost" onClick={() => setDialog("deals")}>
-            Pagos protegidos
-          </Button>
-          <Button variant="ghost" onClick={() => setDialog("settings")}>
-            Ajustes
-          </Button>
+          <div className="ml-auto flex gap-2">
+            <Button variant="ghost" aria-label="Pagos protegidos" title="Pagos protegidos" onClick={() => setDialog("deals")}>
+              🔒<span className="hidden sm:inline"> Pagos protegidos</span>
+            </Button>
+            <Button variant="ghost" aria-label="Ajustes" title="Ajustes" onClick={() => setDialog("settings")}>
+              ⚙<span className="hidden sm:inline"> Ajustes</span>
+            </Button>
+          </div>
         </div>
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className={`w-full shrink-0 flex-col border-r border-slate-800 md:flex md:w-80 ${peer ? "hidden" : "flex"}`}>
-          <div className="space-y-2 border-b border-slate-800 p-3">
+        <aside className={`w-full shrink-0 flex-col border-r border-ink-800 md:flex md:w-80 ${peer ? "hidden" : "flex"}`}>
+          <div className="space-y-2 border-b border-ink-800 p-3">
             <Input value={newPeer} onChange={(e) => setNewPeer(e.target.value)} placeholder="Dirección G… para chatear" />
             <Button onClick={openChat} disabled={!newPeer} className="w-full">
               Nuevo chat
             </Button>
             <ErrorText error={error} />
-            {chats.error && <p className="text-xs text-amber-400">Sin conexión con el nodo: {chats.error}</p>}
+            {chats.error && <p className="text-xs text-peach-400">Sin conexión con el nodo: {chats.error}</p>}
           </div>
           <div className="flex-1 overflow-y-auto">
             {requests.length > 0 && (
-              <div className="px-3 pt-3 text-xs uppercase tracking-wide text-amber-300">Solicitudes</div>
+              <div className="px-3 pt-3 text-xs uppercase tracking-wide text-peach-300">Solicitudes</div>
             )}
             {requests.map((c) => (
               <ConversationItem key={c.peer} peer={c.peer} alias={chats.aliasOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
             ))}
-            {normal.length > 0 && <div className="px-3 pt-3 text-xs uppercase tracking-wide text-slate-500">Chats</div>}
+            {normal.length > 0 && <div className="px-3 pt-3 text-xs uppercase tracking-wide text-ink-500">Chats</div>}
             {normal.map((c) => (
               <ConversationItem key={c.peer} peer={c.peer} alias={chats.aliasOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
             ))}
             {chats.conversations.length === 0 && (
-              <p className="p-4 text-sm text-slate-500">
+              <p className="p-4 text-sm text-ink-500">
                 Aún no tienes chats. Comparte tu dirección o pega la de alguien arriba.
               </p>
             )}
@@ -217,7 +223,7 @@ export function Messenger({
               onDeal={() => setDialog("deal")}
             />
           ) : (
-            <div className="flex flex-1 items-center justify-center p-8 text-center text-slate-500">
+            <div className="flex flex-1 items-center justify-center p-8 text-center text-ink-500">
               Mensajes cifrados de extremo a extremo · se borran del nodo 48 h después de leerlos
             </div>
           )}
@@ -290,13 +296,13 @@ function ConversationItem({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-slate-900 ${active ? "bg-slate-900" : ""}`}
+      className={`flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-ink-900 ${active ? "bg-ink-900" : ""}`}
     >
       <div className="min-w-0 flex-1">
         <PeerName address={peer} alias={alias} className="max-w-full text-sm" />
-        <div className="truncate text-xs text-slate-500">{preview(last)}</div>
+        <div className="truncate text-xs text-ink-500">{preview(last)}</div>
       </div>
-      {unread > 0 && <span className="rounded-full bg-emerald-500 px-2 text-xs text-slate-950">{unread}</span>}
+      {unread > 0 && <span className="rounded-full bg-mint-500 px-2 text-xs text-ink-950">{unread}</span>}
     </button>
   );
 }
@@ -366,50 +372,61 @@ function ChatPane(props: {
 
   return (
     <>
-      <div className="flex items-center gap-2 border-b border-slate-800 px-4 py-3">
-        <button onClick={props.onBack} className="text-slate-400 md:hidden">
+      <div className="flex items-center gap-2 border-b border-ink-800 px-3 py-2 sm:px-4 sm:py-3">
+        <button onClick={props.onBack} className="px-1 text-lg text-ink-400 md:hidden" aria-label="Volver">
           ←
         </button>
-        <PeerName address={peer} alias={props.alias} />
-        <button onClick={() => navigator.clipboard.writeText(peer)} className="text-xs text-slate-500 hover:text-slate-300">
-          copiar
-        </button>
+        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+          <PeerName address={peer} alias={props.alias} className="min-w-0" />
+          <button
+            onClick={() => navigator.clipboard.writeText(peer)}
+            className="hidden text-xs text-ink-500 hover:text-ink-300 sm:inline"
+          >
+            copiar
+          </button>
+        </div>
         {!blocked && (
-          <div className="ml-auto flex gap-2">
-            <Button variant="ghost" onClick={props.onPay}>Pagar</Button>
-            <Button variant="ghost" onClick={props.onDeal}>Pago protegido</Button>
-            <Button variant="ghost" onClick={props.onBlock} title="Bloquear">⛔</Button>
+          <div className="flex shrink-0 gap-1.5 sm:gap-2">
+            <Button variant="ghost" aria-label="Pagar" title="Pagar" onClick={props.onPay}>
+              💸<span className="hidden sm:inline"> Pagar</span>
+            </Button>
+            <Button variant="ghost" aria-label="Pago protegido" title="Pago protegido" onClick={props.onDeal}>
+              🔒<span className="hidden sm:inline"> Pago protegido</span>
+            </Button>
+            <Button variant="ghost" onClick={props.onBlock} title="Bloquear" aria-label="Bloquear">
+              ⛔
+            </Button>
           </div>
         )}
       </div>
 
       {blocked && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-rose-900/50 bg-rose-950/30 px-4 py-2 text-sm">
-          <span className="text-rose-200">⛔ Tienes bloqueado a este usuario. No puede escribirte.</span>
+        <div className="flex flex-wrap items-center gap-2 border-b border-pink-900/50 bg-pink-950/30 px-4 py-2 text-sm">
+          <span className="text-pink-200">⛔ Tienes bloqueado a este usuario. No puede escribirte.</span>
           <Button className="ml-auto" variant="ghost" onClick={props.onUnblock}>Desbloquear</Button>
         </div>
       )}
 
       {request && !blocked && (
-        <div className="flex flex-wrap items-center gap-2 border-b border-amber-900/50 bg-amber-950/30 px-4 py-2 text-sm">
-          <span className="text-amber-200">Solicitud de mensaje de alguien que no conoces.</span>
+        <div className="flex flex-wrap items-center gap-2 border-b border-peach-900/50 bg-peach-950/30 px-4 py-2 text-sm">
+          <span className="text-peach-200">Solicitud de mensaje de alguien que no conoces.</span>
           <Button className="ml-auto" disabled={busy} onClick={() => run(props.onAccept)}>Aceptar</Button>
           <Button variant="danger" disabled={busy} onClick={props.onBlock}>Bloquear</Button>
         </div>
       )}
 
-      <div className="flex-1 space-y-2 overflow-y-auto p-4">
+      <div className="flex-1 space-y-2 overflow-y-auto p-3 sm:p-4">
         {messages.map((m) => (
           <div key={m.id} className={`group flex ${m.dir === "out" ? "justify-end" : "justify-start"}`}>
             <div
-              className={`max-w-[80%] rounded-2xl px-3 py-2 text-sm ${
-                m.dir === "out" ? "bg-emerald-600/20 text-emerald-50" : "bg-slate-800"
+              className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm sm:max-w-[70%] ${
+                m.dir === "out" ? "bg-lilac-400/20 text-lilac-50" : "border border-ink-800 bg-ink-900"
               }`}
             >
               {m.payload.t === "text" && <p className="whitespace-pre-wrap break-words">{m.payload.body}</p>}
               {m.payload.t === "pay" && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-emerald-300">
+                  <div className="text-xs uppercase tracking-wide text-mint-300">
                     {m.dir === "out" ? "Enviaste" : "Recibiste"}
                   </div>
                   <div className="text-lg font-semibold">
@@ -429,16 +446,16 @@ function ChatPane(props: {
               )}
               {m.payload.t === "deal" && m.payload.status !== "funded" && (
                 <div>
-                  <div className="text-xs uppercase tracking-wide text-amber-300">
+                  <div className="text-xs uppercase tracking-wide text-peach-300">
                     Pago protegido #{m.payload.dealId}{" "}
                     {m.payload.status === "released" ? "liberado al vendedor" : "devuelto al comprador"}
                   </div>
                   <ReceiptLinks hash={m.payload.hash} />
                 </div>
               )}
-              <div className="mt-1 flex gap-2 text-[10px] text-slate-500">
-                <span>{new Date(m.ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
-                <button onClick={() => del(m)} className="hidden hover:text-rose-400 group-hover:inline">
+              <div className="mt-1 flex gap-2 text-[10px] text-ink-500">
+                <span>{new Date(m.ts).toLocaleTimeString("es", { hour: "2-digit", minute: "2-digit" })}</span>
+                <button onClick={() => del(m)} className="hidden hover:text-pink-400 group-hover:inline">
                   borrar
                 </button>
               </div>
@@ -449,7 +466,7 @@ function ChatPane(props: {
       </div>
 
       <form
-        className="space-y-1 border-t border-slate-800 p-3"
+        className="space-y-1 border-t border-ink-800 p-2 sm:p-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (!text.trim() || chars > MAX_MESSAGE_CHARS) return;
@@ -474,9 +491,9 @@ function ChatPane(props: {
         <div className="flex justify-between text-xs">
           <span>
             <ErrorText error={error} />
-            {note && <span className="text-slate-400">{note}</span>}
+            {note && <span className="text-ink-400">{note}</span>}
           </span>
-          <span className={chars > MAX_MESSAGE_CHARS ? "text-rose-400" : "text-slate-500"}>
+          <span className={chars > MAX_MESSAGE_CHARS ? "text-pink-400" : "text-ink-500"}>
             {chars}/{MAX_MESSAGE_CHARS}
           </span>
         </div>

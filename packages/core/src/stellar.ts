@@ -299,15 +299,27 @@ export class Stellar {
       successful: tx.successful,
       memo: tx.memo ?? null,
       feeCharged: stroopsToXlm(tx.fee_charged),
-      operations: ops.records.map((op) => {
-        const o = op as unknown as Record<string, string>;
-        return {
-          type: op.type,
-          from: o.from ?? o.source_account,
-          to: o.to ?? null,
-          amount: o.amount ?? null,
-          asset: o.asset_type === "native" ? "XLM" : (o.asset_code ?? null),
-        };
+      operations: ops.records.flatMap((op) => {
+        const o = op as unknown as Record<string, string> & { asset_balance_changes?: BalanceChange[] };
+        // Contract calls (escrow) carry the actual token movements here.
+        if (o.asset_balance_changes?.length) {
+          return o.asset_balance_changes.map((c) => ({
+            type: op.type,
+            from: c.from ?? null,
+            to: c.to ?? null,
+            amount: c.amount ?? null,
+            asset: c.asset_type === "native" ? "XLM" : (c.asset_code ?? null),
+          }));
+        }
+        return [
+          {
+            type: op.type,
+            from: o.from ?? o.source_account,
+            to: o.to ?? null,
+            amount: o.amount ?? null,
+            asset: o.asset_type === "native" ? "XLM" : (o.asset_code ?? null),
+          },
+        ];
       }),
       explorerUrl: this.txUrl(hash),
     };
@@ -324,6 +336,14 @@ export interface Deal {
   status: { tag: "Funded" | "Released" | "Refunded" } | ["Funded" | "Released" | "Refunded"];
 }
 
+interface BalanceChange {
+  asset_type: string;
+  asset_code?: string;
+  from?: string;
+  to?: string;
+  amount?: string;
+}
+
 export interface Receipt {
   network: string;
   hash: string;
@@ -333,7 +353,13 @@ export interface Receipt {
   successful: boolean;
   memo: string | null;
   feeCharged: string;
-  operations: { type: string; from: string; to: string | null; amount: string | null; asset: string | null }[];
+  operations: {
+    type: string;
+    from: string | null;
+    to: string | null;
+    amount: string | null;
+    asset: string | null;
+  }[];
   explorerUrl: string;
 }
 

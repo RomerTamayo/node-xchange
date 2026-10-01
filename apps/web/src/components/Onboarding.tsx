@@ -71,11 +71,11 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
     return (
       <Shell>
         <h2 className="text-lg font-semibold">Guarda tu clave secreta</h2>
-        <p className="text-sm text-slate-400">
+        <p className="text-sm text-ink-400">
           Es la única forma de recuperar tu dinero si borras los datos de este navegador o cambias de
           dispositivo. Nadie más la tiene, ni siquiera el nodo.
         </p>
-        <code className="block break-all rounded-lg bg-slate-950 p-3 text-sm text-amber-300">{backup.secret}</code>
+        <code className="block break-all rounded-lg bg-ink-950 p-3 text-sm text-peach-300">{backup.secret}</code>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={saved} onChange={(e) => setSaved(e.target.checked)} />
           La guardé en un lugar seguro
@@ -89,7 +89,7 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
 
   return (
     <Shell>
-      <div className="grid grid-cols-3 gap-1 rounded-lg bg-slate-950 p-1 text-sm">
+      <div className="grid grid-cols-3 gap-1 rounded-lg bg-ink-950 p-1 text-xs sm:text-sm">
         {(
           [
             ["create", "Crear billetera"],
@@ -100,7 +100,7 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
           <button
             key={id}
             onClick={() => setTab(id)}
-            className={`rounded-md py-1.5 ${tab === id ? "bg-slate-800 text-white" : "text-slate-400"}`}
+            className={`rounded-md py-1.5 ${tab === id ? "bg-ink-800 text-white" : "text-ink-400"}`}
           >
             {label}
           </button>
@@ -109,7 +109,7 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
 
       {tab === "external" ? (
         <>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-ink-400">
             Conecta Freighter, xBull, Lobstr, Albedo u otra billetera. Firmarás <b>una vez</b> para autorizar
             este dispositivo a chatear, y cada pago lo apruebas en tu billetera.
           </p>
@@ -119,7 +119,7 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
         </>
       ) : (
         <>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-ink-400">
             {tab === "create"
               ? "Creamos una billetera Stellar en este navegador. ¿Vienes de Binance o Bybit? Crea una aquí y retira XLM hacia ella."
               : "Usa una cuenta Stellar que ya tienes."}
@@ -141,7 +141,7 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
         </>
       )}
 
-      {step && <p className="text-sm text-emerald-400">{step}</p>}
+      {step && <p className="text-sm text-mint-400">{step}</p>}
       <ErrorText error={error} />
     </Shell>
   );
@@ -149,13 +149,13 @@ export function Onboarding({ onReady }: { onReady: (a: Account, w: Wallet) => vo
 
 export function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center p-4">
-      <div className="w-full max-w-md space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6">
+    <div className="flex min-h-dvh items-center justify-center p-3 sm:p-4">
+      <div className="w-full max-w-md space-y-4 rounded-2xl border border-ink-800 bg-ink-900 p-5 sm:p-6">
         <div>
           <h1 className="text-2xl font-bold">
-            Node<span className="text-emerald-400">X</span>change
+            Node<span className="text-lilac-400">X</span>change
           </h1>
-          <p className="text-sm text-slate-400">Chat y pagos entre billeteras Stellar · testnet</p>
+          <p className="text-sm text-ink-400">Chat y pagos entre billeteras Stellar · testnet</p>
         </div>
         {children}
       </div>

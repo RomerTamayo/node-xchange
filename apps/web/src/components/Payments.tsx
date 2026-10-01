@@ -19,12 +19,12 @@ const AMOUNT_RE = /^\d+(\.\d{1,7})?$/;
 
 function AssetPicker({ value, onChange }: { value: AssetCode; onChange: (a: AssetCode) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-lg bg-slate-950 p-1 text-sm">
+    <div className="grid grid-cols-2 gap-1 rounded-lg bg-ink-950 p-1 text-sm">
       {(["XLM", "USDC"] as const).map((a) => (
         <button
           key={a}
           onClick={() => onChange(a)}
-          className={`rounded-md py-1.5 ${value === a ? "bg-slate-800 text-white" : "text-slate-400"}`}
+          className={`rounded-md py-1.5 ${value === a ? "bg-ink-800 text-white" : "text-ink-400"}`}
         >
           {a}
         </button>
@@ -95,7 +95,7 @@ export function PayDialog({ me, peer, node, getWallet, onDone, onClose }: Dialog
         <Input value={memo} maxLength={28} onChange={(e) => setMemo(e.target.value)} />
       </Field>
       {valid && (
-        <div className="rounded-lg bg-slate-950 p-3 text-sm text-slate-300">
+        <div className="rounded-lg bg-ink-950 p-3 text-sm text-ink-300">
           Recibe <b>{amount} {asset}</b>
           {fee !== "0" && (
             <>
@@ -105,7 +105,7 @@ export function PayDialog({ me, peer, node, getWallet, onDone, onClose }: Dialog
         </div>
       )}
       {feeTooHigh && (
-        <p className="text-sm text-rose-400">
+        <p className="text-sm text-pink-400">
           Este nodo pide {feeBps / 100}% de comisión, más del máximo permitido ({MAX_TRANSFER_FEE_BPS / 100}%). Por
           seguridad no se puede pagar a través de él.
         </p>
@@ -162,7 +162,7 @@ export function DealDialog({ me, peer, node, getWallet, onDone, onClose }: Dialo
 
   return (
     <Modal title="Pago protegido (escrow)" onClose={onClose}>
-      <p className="text-sm text-slate-400">
+      <p className="text-sm text-ink-400">
         El dinero queda retenido en un contrato Soroban. {short(peer)} cobra cuando confirmes que recibiste el
         producto. Si no cumple, te lo devuelve o lo recuperas al vencer el plazo. La comisión solo se cobra si
         el vendedor recibe el pago.
@@ -177,8 +177,8 @@ export function DealDialog({ me, peer, node, getWallet, onDone, onClose }: Dialo
       >
         <Input inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
       </Field>
-      <div className="rounded-lg bg-slate-950 p-3 text-xs text-slate-400">
-        <span className="text-slate-300">Árbitro en caso de disputa:</span>{" "}
+      <div className="rounded-lg bg-ink-950 p-3 text-xs text-ink-400">
+        <span className="text-ink-300">Árbitro en caso de disputa:</span>{" "}
         {node?.operator ? (
           <>
             <PeerName address={node.operator} alias={null} /> (operador de «{node.name}»). Puede decidir a
@@ -201,16 +201,16 @@ export function ReceiptLinks({ hash }: { hash: string }) {
   const wrap = (fn: () => Promise<void>) => () => fn().catch((e) => setError(errorMessage(e)));
   return (
     <div className="mt-2 flex flex-wrap gap-2 text-xs">
-      <a className="text-emerald-400 hover:underline" href={stellar.txUrl(hash)} target="_blank" rel="noreferrer">
+      <a className="text-mint-400 hover:underline" href={stellar.txUrl(hash)} target="_blank" rel="noreferrer">
         Ver en la red
       </a>
-      <button className="text-emerald-400 hover:underline" onClick={wrap(() => printReceipt(hash))}>
+      <button className="text-mint-400 hover:underline" onClick={wrap(() => printReceipt(hash))}>
         Imprimir / PDF
       </button>
-      <button className="text-emerald-400 hover:underline" onClick={wrap(() => downloadReceipt(hash))}>
+      <button className="text-mint-400 hover:underline" onClick={wrap(() => downloadReceipt(hash))}>
         JSON
       </button>
-      {error && <span className="text-rose-400">{error}</span>}
+      {error && <span className="text-pink-400">{error}</span>}
     </div>
   );
 }
@@ -302,9 +302,9 @@ export function DealView({
 
   return (
     <div className="space-y-2">
-      <div className="text-xs uppercase tracking-wide text-amber-300">
+      <div className="text-xs uppercase tracking-wide text-peach-300">
         Pago protegido #{dealId}
-        {deal && <span className="text-slate-500"> · {iAmBuyer ? "compras" : iAmSeller ? "vendes" : "árbitro"}</span>}
+        {deal && <span className="text-ink-500"> · {iAmBuyer ? "compras" : iAmSeller ? "vendes" : "árbitro"}</span>}
       </div>
       {showParties && counterpart && (
         <div className="text-sm">
@@ -315,14 +315,14 @@ export function DealView({
       <div className="text-lg font-semibold">
         {deal ? `${fromStroops(deal.amount)} ${assetOfToken(deal.token)}` : "…"}
       </div>
-      <div className="text-sm text-slate-300">
+      <div className="text-sm text-ink-300">
         {status ? STATUS_LABEL[status] : error ? "" : "Consultando contrato…"}
         {deal && status === "Funded" && (
-          <span className="text-slate-500"> · vence {new Date(Number(deal.deadline) * 1000).toLocaleDateString()}</span>
+          <span className="text-ink-500"> · vence {new Date(Number(deal.deadline) * 1000).toLocaleDateString("es")}</span>
         )}
       </div>
       {deal && (
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-ink-500">
           Árbitro: <PeerName address={deal.arbiter} alias={null} />
         </div>
       )}
@@ -345,7 +345,7 @@ export function DealView({
           )}
         </div>
       )}
-      {note && <p className="text-xs text-amber-300">{note}</p>}
+      {note && <p className="text-xs text-peach-300">{note}</p>}
       <ErrorText error={error} />
     </div>
   );
@@ -369,8 +369,8 @@ export function DealCard({
   if (payload.contract !== stellar.net.escrow) {
     return (
       <div className="space-y-1">
-        <div className="text-xs uppercase tracking-wide text-amber-300">Pago protegido #{payload.dealId}</div>
-        <p className="text-sm text-slate-400">
+        <div className="text-xs uppercase tracking-wide text-peach-300">Pago protegido #{payload.dealId}</div>
+        <p className="text-sm text-ink-400">
           {payload.amount} {payload.asset} en una versión anterior del contrato.
         </p>
         <ReceiptLinks hash={payload.hash} />
@@ -419,15 +419,15 @@ export function DealsPanel({
 
   return (
     <Modal title="Mis pagos protegidos" onClose={onClose}>
-      <p className="text-xs text-slate-400">
+      <p className="text-xs text-ink-400">
         Leídos directamente del contrato en la red: aparecen aunque se hayan borrado los mensajes, hayas cambiado
         de dispositivo o bloqueado a alguien.
       </p>
-      {!deals && !error && <p className="text-sm text-slate-400">Consultando contrato…</p>}
-      {deals?.length === 0 && <p className="text-sm text-slate-400">Aún no tienes pagos protegidos.</p>}
+      {!deals && !error && <p className="text-sm text-ink-400">Consultando contrato…</p>}
+      {deals?.length === 0 && <p className="text-sm text-ink-400">Aún no tienes pagos protegidos.</p>}
       <div className="space-y-3">
         {deals?.map(({ id, deal }) => (
-          <div key={id} className="rounded-xl border border-slate-800 p-3">
+          <div key={id} className="rounded-xl border border-ink-800 p-3">
             <DealView
               dealId={id}
               me={me}

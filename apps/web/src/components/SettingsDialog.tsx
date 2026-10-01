@@ -86,7 +86,7 @@ export function SettingsDialog({
         </Field>
       </section>
 
-      <section className="space-y-2 border-t border-slate-800 pt-4">
+      <section className="space-y-2 border-t border-ink-800 pt-4">
         <label className="flex items-start gap-3 text-sm">
           <input
             type="checkbox"
@@ -96,7 +96,7 @@ export function SettingsDialog({
           />
           <span>
             <b>Mensajes volátiles en este dispositivo</b>
-            <span className="block text-slate-400">
+            <span className="block text-ink-400">
               Las copias locales se borran 48 horas después de verlas. Desactívalo para conservarlas hasta que
               las borres tú.
             </span>
@@ -108,8 +108,8 @@ export function SettingsDialog({
       </section>
 
       {blocked.length > 0 && (
-        <section className="space-y-2 border-t border-slate-800 pt-4">
-          <p className="text-xs font-medium text-slate-400">Usuarios bloqueados</p>
+        <section className="space-y-2 border-t border-ink-800 pt-4">
+          <p className="text-xs font-medium text-ink-400">Usuarios bloqueados</p>
           {blocked.map((b) => (
             <div key={b.address} className="flex items-center justify-between gap-2">
               <PeerName address={b.address} alias={b.alias} />
@@ -121,9 +121,14 @@ export function SettingsDialog({
         </section>
       )}
 
-      <section className="space-y-2 border-t border-slate-800 pt-4">
-        <p className="text-sm text-slate-400">
-          Nodo: <span className="break-all text-slate-300">{account.session.homeNode}</span>
+      <section className="space-y-2 border-t border-ink-800 pt-4">
+        <p className="text-sm text-ink-400">
+          Nodo: <span className="break-all text-ink-300">{account.session.homeNode}</span>
+        </p>
+        <p className="text-xs text-ink-500">
+          Guarda la dirección de tu nodo dentro de tu cuenta Stellar, para que personas de <b>otros nodos</b> sepan
+          dónde dejarte mensajes. Si todos usan este mismo nodo no hace falta. Bloquea 0.5 XLM de reserva mientras
+          esté publicado.
         </p>
         <Button variant="ghost" className="w-full" onClick={publish}>
           Publicar mi nodo en mi cuenta Stellar
@@ -131,9 +136,9 @@ export function SettingsDialog({
       </section>
 
       {local && (
-        <section className="space-y-2 border-t border-slate-800 pt-4">
+        <section className="space-y-2 border-t border-ink-800 pt-4">
           {secret ? (
-            <code className="block break-all rounded-lg bg-slate-950 p-3 text-sm text-amber-300">{secret}</code>
+            <code className="block break-all rounded-lg bg-ink-950 p-3 text-sm text-peach-300">{secret}</code>
           ) : (
             <>
               <Field label="Ver mi clave secreta">
@@ -147,10 +152,10 @@ export function SettingsDialog({
         </section>
       )}
 
-      <section className="space-y-2 border-t border-slate-800 pt-4">
+      <section className="space-y-2 border-t border-ink-800 pt-4">
         {confirmLogout ? (
           <>
-            <p className="text-sm text-rose-300">
+            <p className="text-sm text-pink-300">
               Se borrarán tus mensajes, tus llaves de chat
               {local && " y tu billetera"} de este navegador.
               {local && " Si no guardaste tu clave secreta, perderás tus fondos."}
@@ -166,7 +171,7 @@ export function SettingsDialog({
         )}
       </section>
 
-      {note && <p className="text-sm text-emerald-400">{note}</p>}
+      {note && <p className="text-sm text-mint-400">{note}</p>}
       <ErrorText error={error} />
     </Modal>
   );

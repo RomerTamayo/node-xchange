@@ -71,8 +71,8 @@ function Unlock({
 
   return (
     <Shell>
-      <p className="text-sm text-slate-400">
-        Desbloquea la billetera <span className="font-mono text-slate-200">{short(account.session.address)}</span>
+      <p className="text-sm text-ink-400">
+        Desbloquea la billetera <span className="font-mono text-ink-200">{short(account.session.address)}</span>
       </p>
       <form
         className="space-y-3"
@@ -94,7 +94,7 @@ function Unlock({
           Borrar esta billetera de este navegador (necesitarás tu clave secreta)
         </Button>
       ) : (
-        <button className="text-xs text-slate-500 hover:text-slate-300" onClick={() => setConfirmReset(true)}>
+        <button className="text-xs text-ink-500 hover:text-ink-300" onClick={() => setConfirmReset(true)}>
           ¿Olvidaste la contraseña?
         </button>
       )}

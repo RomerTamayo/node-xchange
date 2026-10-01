@@ -1,7 +1,69 @@
 @import "tailwindcss";
 
+/* Black base with pastel accents. */
+@theme {
+  --color-ink-50: #f7f7f8;
+  --color-ink-100: #ececee;
+  --color-ink-200: #d9d9de;
+  --color-ink-300: #bdbdc6;
+  --color-ink-400: #9a9aa6;
+  --color-ink-500: #74747f;
+  --color-ink-600: #55555e;
+  --color-ink-700: #3a3a41;
+  --color-ink-800: #26262b;
+  --color-ink-900: #17171a;
+  --color-ink-950: #0b0b0d;
+
+  /* primary actions */
+  --color-mint-50: #f1fbf6;
+  --color-mint-100: #e2f8ed;
+  --color-mint-200: #cdf3e0;
+  --color-mint-300: #b6eed2;
+  --color-mint-400: #9de6c2;
+  --color-mint-500: #84dcb1;
+  --color-mint-600: #64c896;
+  --color-mint-900: #1f3b30;
+  --color-mint-950: #12241d;
+
+  /* own messages, brand */
+  --color-lilac-50: #f6f3fe;
+  --color-lilac-100: #ede6fd;
+  --color-lilac-200: #e1d7fb;
+  --color-lilac-300: #d0c2f7;
+  --color-lilac-400: #bda9f2;
+  --color-lilac-500: #a890ea;
+  --color-lilac-600: #8f74dd;
+  --color-lilac-900: #2e2648;
+  --color-lilac-950: #1b1630;
+
+  /* warnings, escrow */
+  --color-peach-50: #fff7f0;
+  --color-peach-100: #ffefe2;
+  --color-peach-200: #fde3cf;
+  --color-peach-300: #fbd3b4;
+  --color-peach-400: #f8c39a;
+  --color-peach-500: #f4b07d;
+  --color-peach-600: #ec9a5d;
+  --color-peach-900: #4a3322;
+  --color-peach-950: #2a1d14;
+
+  /* danger, blocking */
+  --color-pink-50: #fef4f7;
+  --color-pink-100: #fde8ef;
+  --color-pink-200: #fbd9e3;
+  --color-pink-300: #f7c2d2;
+  --color-pink-400: #f2a9bf;
+  --color-pink-500: #ec93ad;
+  --color-pink-600: #e47b9b;
+  --color-pink-900: #4a2230;
+  --color-pink-950: #2a141c;
+}
+
 @layer base {
   button:not(:disabled) {
     cursor: pointer;
+  }
+  input[type="checkbox"] {
+    accent-color: var(--color-mint-400);
   }
 }

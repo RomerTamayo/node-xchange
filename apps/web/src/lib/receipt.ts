@@ -15,34 +15,63 @@ export async function downloadReceipt(hash: string) {
 const esc = (s: unknown) =>
   String(s ?? "—").replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-function receiptHtml(r: Receipt): string {
-  const rows = r.operations
+function movementLabel(op: Receipt["operations"][number]): string {
+  const escrow = stellar.net.escrow;
+  if (op.to === escrow) return "Depósito en pago protegido";
+  if (op.from === escrow) return "Salida de pago protegido";
+  if (op.type === "payment") return "Pago";
+  if (op.type === "change_trust") return "Activación de activo";
+  if (op.type === "manage_data") return "Publicación de datos";
+  return op.type;
+}
+
+const party = (address: string | null) =>
+  address === stellar.net.escrow
+    ? `Contrato de garantía NodeXchange<br><span class="mono">${esc(address)}</span>`
+    : `<span class="mono">${esc(address)}</span>`;
+
+export function receiptHtml(r: Receipt): string {
+  const movements = r.operations
     .map(
-      (op) =>
-        `<tr><td>${esc(op.type)}</td><td class="mono">${esc(op.from)}</td><td class="mono">${esc(op.to)}</td><td>${esc(op.amount)} ${esc(op.asset)}</td></tr>`,
+      (op) => `<div class="move">
+  <div class="move-head"><span>${esc(movementLabel(op))}</span>
+  <span class="amount">${op.amount ? `${esc(Number(op.amount).toString())} ${esc(op.asset)}` : "—"}</span></div>
+  <div class="row"><span class="label">De</span><span>${party(op.from)}</span></div>
+  <div class="row"><span class="label">Para</span><span>${party(op.to)}</span></div>
+</div>`,
     )
     .join("");
-  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Comprobante ${esc(r.hash.slice(0, 10))}</title>
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Comprobante ${esc(r.hash.slice(0, 10))}</title>
 <style>
-body{font-family:system-ui,sans-serif;color:#111;max-width:760px;margin:32px auto;padding:0 16px}
-h1{font-size:20px;margin:0}.muted{color:#555;font-size:13px}
-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px}
-td,th{border-bottom:1px solid #ddd;padding:6px;text-align:left;vertical-align:top}
+*{box-sizing:border-box}
+body{font-family:system-ui,sans-serif;color:#111;max-width:720px;margin:24px auto;padding:0 16px;font-size:14px}
+h1{font-size:20px;margin:0 0 4px}.muted{color:#555;font-size:13px;margin:0 0 16px}
+.badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:12px;background:${r.successful ? "#d9f7e8" : "#fde2e7"}}
 .mono{font-family:ui-monospace,monospace;word-break:break-all;font-size:12px}
-.note{margin-top:24px;font-size:12px;color:#555;border-top:1px solid #ddd;padding-top:12px}
+.row{display:flex;gap:12px;padding:6px 0;border-bottom:1px solid #eee}
+.label{flex:0 0 110px;color:#555}
+.row>span:last-child{flex:1;min-width:0}
+h2{font-size:15px;margin:20px 0 8px}
+.move{border:1px solid #ddd;border-radius:10px;padding:10px 12px;margin-bottom:10px;break-inside:avoid}
+.move-head{display:flex;justify-content:space-between;gap:12px;font-weight:600;margin-bottom:4px}
+.amount{font-size:16px;white-space:nowrap}
+.move .label{flex-basis:50px}
+.note{margin-top:20px;font-size:12px;color:#555;border-top:1px solid #ddd;padding-top:12px}
 </style></head><body>
-<h1>NodeXchange · Comprobante de transacción</h1>
-<p class="muted">Red Stellar ${esc(r.network)} · ${r.successful ? "Exitosa" : "Fallida"}</p>
-<table>
-<tr><th>Hash</th><td class="mono">${esc(r.hash)}</td></tr>
-<tr><th>Fecha</th><td>${esc(new Date(r.createdAt).toLocaleString())}</td></tr>
-<tr><th>Ledger</th><td>${esc(r.ledger)}</td></tr>
-<tr><th>Origen</th><td class="mono">${esc(r.source)}</td></tr>
-<tr><th>Memo</th><td>${esc(r.memo)}</td></tr>
-<tr><th>Comisión de red</th><td>${esc(r.feeCharged)} XLM</td></tr>
-</table>
-<table><tr><th>Operación</th><th>De</th><th>Para</th><th>Monto</th></tr>${rows}</table>
-<p class="note">La fuente de verdad es la red Stellar: verifica este comprobante en
+<h1>NodeXchange · Comprobante</h1>
+<p class="muted">Red Stellar ${esc(r.network)} · <span class="badge">${r.successful ? "Exitosa" : "Fallida"}</span></p>
+<h2>Movimientos</h2>
+${movements}
+<h2>Transacción</h2>
+<div class="row"><span class="label">Fecha</span><span>${esc(new Date(r.createdAt).toLocaleString("es"))}</span></div>
+<div class="row"><span class="label">Hash</span><span class="mono">${esc(r.hash)}</span></div>
+<div class="row"><span class="label">Firmada por</span><span class="mono">${esc(r.source)}</span></div>
+<div class="row"><span class="label">Memo</span><span>${esc(r.memo)}</span></div>
+<div class="row"><span class="label">Ledger</span><span>${esc(r.ledger)}</span></div>
+<div class="row"><span class="label">Costo de red</span><span>${esc(r.feeCharged)} XLM</span></div>
+<p class="note">La fuente de verdad es la red Stellar. Verifica este comprobante con su hash en
 <span class="mono">${esc(r.explorerUrl)}</span></p>
 </body></html>`;
 }
