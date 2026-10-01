@@ -10,6 +10,7 @@ import {
   Lock,
   MoreVertical,
   Plus,
+  RefreshCw,
   Send,
   Settings as SettingsIcon,
   ShieldCheck,
@@ -105,17 +106,40 @@ export function Messenger({
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [newPeer, setNewPeer] = useState("");
   const [error, setError] = useState<string | null>(null);
+  /** Bumped by the refresh button so deal cards re-read the contract. */
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
 
   const refreshBalances = useCallback(() => {
     stellar.balances(me).then(setBalances).catch(() => {});
   }, [me]);
 
+  const loadNodeInfo = useCallback(
+    () => new NodeClient(account.session.homeNode).info().then(setNode).catch(() => {}),
+    [account],
+  );
+
+  /** Refreshes balances, inbox, deals and node info without reloading the page. */
+  const refreshAll = async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        stellar.balances(me).then(setBalances).catch(() => {}),
+        chats.poll(),
+        loadNodeInfo(),
+      ]);
+      setRefreshTick((n) => n + 1);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   useEffect(() => {
-    new NodeClient(account.session.homeNode).info().then(setNode).catch(() => {});
+    void loadNodeInfo();
     refreshBalances();
     const timer = setInterval(refreshBalances, 15_000);
     return () => clearInterval(timer);
-  }, [account, refreshBalances]);
+  }, [loadNodeInfo, refreshBalances]);
 
   /** External wallets are reconnected lazily, only when something needs signing. */
   const getWallet = useCallback(async () => {
@@ -253,6 +277,9 @@ export function Messenger({
             <ShieldCheck size={16} className="text-cyan-300" />
             <span className="hidden lg:inline">{t("deals")}</span>
           </Button>
+          <Button variant="ghost" aria-label={t("refresh")} title={t("refresh")} onClick={refreshAll} disabled={refreshing}>
+            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+          </Button>
           <Button variant="ghost" aria-label={t("settings")} title={t("settings")} onClick={() => setDialog("settings")}>
             <SettingsIcon size={16} />
           </Button>
@@ -300,6 +327,7 @@ export function Messenger({
           {peer ? (
             <ChatPane
               me={me}
+              refreshTick={refreshTick}
               peer={peer}
               alias={chats.aliasOf(peer)}
               blocked={chats.blocked.includes(peer)}
@@ -335,6 +363,7 @@ export function Messenger({
       )}
       {dialog === "deals" && (
         <DealsPanel
+          key={refreshTick}
           me={me}
           getWallet={getWallet}
           aliasOf={chats.aliasOf}
@@ -427,6 +456,7 @@ function ConversationItem({
 
 function ChatPane(props: {
   me: string;
+  refreshTick: number;
   peer: string;
   alias: string | null;
   blocked: boolean;
@@ -573,7 +603,7 @@ function ChatPane(props: {
                 <DealCard
                   payload={m.payload}
                   me={me}
-                  refreshKey={dealUpdates.get(m.payload.dealId) ?? 0}
+                  refreshKey={(dealUpdates.get(m.payload.dealId) ?? 0) + props.refreshTick}
                   getWallet={props.getWallet}
                   onUpdate={props.onPayload}
                 />

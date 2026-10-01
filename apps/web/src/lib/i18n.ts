@@ -58,6 +58,7 @@ const es = {
   fundTestnet: "Fondear (testnet)",
   deals: "Pagos protegidos",
   settings: "Ajustes",
+  refresh: "Actualizar",
   language: "Idioma",
 
   // sidebar
@@ -292,6 +293,7 @@ const en: Record<Key, string> = {
   fundTestnet: "Fund (testnet)",
   deals: "Protected payments",
   settings: "Settings",
+  refresh: "Refresh",
   language: "Language",
 
   newChatPlaceholder: "G… address to chat with",
