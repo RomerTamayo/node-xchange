@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ExternalLink, FileJson, Printer, ShieldCheck } from "lucide-react";
 import {
   MAX_DEAL_DAYS,
   MAX_TRANSFER_FEE_BPS,
@@ -11,6 +12,7 @@ import {
   type Payload,
 } from "@nodexchange/core";
 import { stellar } from "../lib/config.ts";
+import { locale, t, useLang, type Key } from "../lib/i18n.ts";
 import { downloadReceipt, printReceipt } from "../lib/receipt.ts";
 import { short, type Wallet } from "../lib/wallet.ts";
 import { Button, ErrorText, Field, Input, Modal, PeerName, errorMessage } from "./ui.tsx";
@@ -19,12 +21,12 @@ const AMOUNT_RE = /^\d+(\.\d{1,7})?$/;
 
 function AssetPicker({ value, onChange }: { value: AssetCode; onChange: (a: AssetCode) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-lg bg-ink-950 p-1 text-sm">
+    <div className="grid grid-cols-2 gap-1 rounded-xl bg-black/30 p-1 text-sm">
       {(["XLM", "USDC"] as const).map((a) => (
         <button
           key={a}
           onClick={() => onChange(a)}
-          className={`rounded-md py-1.5 ${value === a ? "bg-ink-800 text-white" : "text-ink-400"}`}
+          className={`rounded-lg py-1.5 transition ${value === a ? "glass text-white" : "text-ink-400 hover:text-white"}`}
         >
           {a}
         </button>
@@ -43,6 +45,7 @@ interface DialogProps {
 }
 
 export function PayDialog({ me, peer, node, getWallet, onDone, onClose }: DialogProps) {
+  useLang();
   const [asset, setAsset] = useState<AssetCode>("XLM");
   const [amount, setAmount] = useState("");
   const [memo, setMemo] = useState("");
@@ -60,11 +63,7 @@ export function PayDialog({ me, peer, node, getWallet, onDone, onClose }: Dialog
     setError(null);
     try {
       if (!(await stellar.canReceive(peer, asset))) {
-        throw new Error(
-          asset === "USDC"
-            ? "Este usuario todavía no activó USDC. Pídele que lo active, o envía XLM."
-            : "La cuenta de destino no existe todavía.",
-        );
+        throw new Error(asset === "USDC" ? t("errNoUsdc") : t("errNoAccount"));
       }
       const wallet = await getWallet();
       const res = await stellar.pay({
@@ -86,39 +85,38 @@ export function PayDialog({ me, peer, node, getWallet, onDone, onClose }: Dialog
   }
 
   return (
-    <Modal title={`Enviar a ${short(peer)}`} onClose={onClose}>
+    <Modal title={t("sendTo", { name: short(peer) })} onClose={onClose}>
       <AssetPicker value={asset} onChange={setAsset} />
-      <Field label="Monto">
+      <Field label={t("amount")}>
         <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
       </Field>
-      <Field label="Memo (opcional)" hint="Obligatorio si envías a un exchange como Binance o Bybit.">
+      <Field label={t("memoOptional")} hint={t("memoHint")}>
         <Input value={memo} maxLength={28} onChange={(e) => setMemo(e.target.value)} />
       </Field>
       {valid && (
-        <div className="rounded-lg bg-ink-950 p-3 text-sm text-ink-300">
-          Recibe <b>{amount} {asset}</b>
-          {fee !== "0" && (
-            <>
-              {" "}· comisión del nodo {fee} {asset} ({feeBps / 100}%)
-            </>
-          )}
+        <div className="rounded-xl border border-white/10 bg-black/30 p-3 text-sm text-ink-200">
+          {t("receives")}{" "}
+          <b className="text-white">
+            {amount} {asset}
+          </b>
+          {fee !== "0" && <> · {t("nodeFee", { fee, asset, pct: feeBps / 100 })}</>}
         </div>
       )}
       {feeTooHigh && (
-        <p className="text-sm text-pink-400">
-          Este nodo pide {feeBps / 100}% de comisión, más del máximo permitido ({MAX_TRANSFER_FEE_BPS / 100}%). Por
-          seguridad no se puede pagar a través de él.
+        <p className="text-sm text-ruby-400">
+          {t("feeTooHigh", { pct: feeBps / 100, max: MAX_TRANSFER_FEE_BPS / 100 })}
         </p>
       )}
       <ErrorText error={error} />
       <Button onClick={submit} disabled={!valid || busy} className="w-full">
-        {busy ? "Firmando y enviando…" : "Enviar pago"}
+        {busy ? t("sendingPayment") : t("sendPayment")}
       </Button>
     </Modal>
   );
 }
 
 export function DealDialog({ me, peer, node, getWallet, onDone, onClose }: DialogProps) {
+  useLang();
   const [asset, setAsset] = useState<AssetCode>("XLM");
   const [amount, setAmount] = useState("");
   const [days, setDays] = useState("7");
@@ -132,7 +130,7 @@ export function DealDialog({ me, peer, node, getWallet, onDone, onClose }: Dialo
     setBusy(true);
     setError(null);
     try {
-      if (!node?.operator) throw new Error("Este nodo no tiene árbitro configurado.");
+      if (!node?.operator) throw new Error(t("errNoArbiter"));
       const wallet = await getWallet();
       const res = await stellar.createDeal({
         buyer: me,
@@ -161,61 +159,65 @@ export function DealDialog({ me, peer, node, getWallet, onDone, onClose }: Dialo
   }
 
   return (
-    <Modal title="Pago protegido (escrow)" onClose={onClose}>
-      <p className="text-sm text-ink-400">
-        El dinero queda retenido en un contrato Soroban. {short(peer)} cobra cuando confirmes que recibiste el
-        producto. Si no cumple, te lo devuelve o lo recuperas al vencer el plazo. La comisión solo se cobra si
-        el vendedor recibe el pago.
-      </p>
+    <Modal title={t("dealTitle")} onClose={onClose}>
+      <p className="text-sm text-ink-300">{t("dealIntro", { name: short(peer) })}</p>
       <AssetPicker value={asset} onChange={setAsset} />
-      <Field label="Monto">
+      <Field label={t("amount")}>
         <Input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
       </Field>
-      <Field
-        label={`Plazo (días, máximo ${MAX_DEAL_DAYS})`}
-        hint="Después de este plazo puedes recuperar tu dinero si nadie liberó el pago."
-      >
+      <Field label={t("term", { max: MAX_DEAL_DAYS })} hint={t("termHint")}>
         <Input inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} />
       </Field>
-      <div className="rounded-lg bg-ink-950 p-3 text-xs text-ink-400">
-        <span className="text-ink-300">Árbitro en caso de disputa:</span>{" "}
+      <div className="rounded-xl border border-cyan-400/20 bg-cyan-400/5 p-3 text-xs text-ink-300">
+        <span className="font-medium text-cyan-200">{t("arbiterLabel")}</span>{" "}
         {node?.operator ? (
           <>
-            <PeerName address={node.operator} alias={null} /> (operador de «{node.name}»). Puede decidir a
-            favor de cualquiera de los dos si no se ponen de acuerdo.
+            <PeerName address={node.operator} alias={null} /> {t("arbiterBody", { node: node.name })}
           </>
         ) : (
-          "este nodo no tiene árbitro configurado."
+          t("noArbiter")
         )}
       </div>
       <ErrorText error={error} />
       <Button onClick={submit} disabled={!valid || busy} className="w-full">
-        {busy ? "Firmando y bloqueando fondos…" : "Bloquear fondos"}
+        <ShieldCheck size={16} />
+        {busy ? t("lockingFunds") : t("lockFunds")}
       </Button>
     </Modal>
   );
 }
 
 export function ReceiptLinks({ hash }: { hash: string }) {
+  useLang();
   const [error, setError] = useState<string | null>(null);
   const wrap = (fn: () => Promise<void>) => () => fn().catch((e) => setError(errorMessage(e)));
+  const link = "inline-flex items-center gap-1 text-cyan-300 hover:text-cyan-200 hover:underline";
   return (
-    <div className="mt-2 flex flex-wrap gap-2 text-xs">
-      <a className="text-mint-400 hover:underline" href={stellar.txUrl(hash)} target="_blank" rel="noreferrer">
-        Ver en la red
+    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs">
+      <a className={link} href={stellar.txUrl(hash)} target="_blank" rel="noreferrer">
+        <ExternalLink size={12} />
+        {t("viewOnChain")}
       </a>
-      <button className="text-mint-400 hover:underline" onClick={wrap(() => printReceipt(hash))}>
-        Imprimir / PDF
+      <button className={link} onClick={wrap(() => printReceipt(hash))}>
+        <Printer size={12} />
+        {t("printPdf")}
       </button>
-      <button className="text-mint-400 hover:underline" onClick={wrap(() => downloadReceipt(hash))}>
+      <button className={link} onClick={wrap(() => downloadReceipt(hash))}>
+        <FileJson size={12} />
         JSON
       </button>
-      {error && <span className="text-pink-400">{error}</span>}
+      {error && <span className="text-ruby-400">{error}</span>}
     </div>
   );
 }
 
-const STATUS_LABEL = { Funded: "Fondos retenidos", Released: "Pagado al vendedor", Refunded: "Devuelto al comprador" };
+const STATUS_LABEL: Record<"Funded" | "Released" | "Refunded", Key> = {
+  Funded: "statusFunded",
+  Released: "statusReleased",
+  Refunded: "statusRefunded",
+};
+
+const STATUS_COLOR = { Funded: "text-cyan-200", Released: "text-emerald-300", Refunded: "text-violet-300" };
 
 export function assetOfToken(token: string): string {
   if (token === stellar.net.xlmSac) return "XLM";
@@ -227,7 +229,7 @@ type SettleAction = "release" | "cancel" | "reclaim";
 
 /**
  * Live view of a deal read from the contract, with the actions the viewer may
- * take. Used in chat cards and in the "Mis pagos protegidos" panel.
+ * take. Used in chat cards and in the protected payments panel.
  */
 export function DealView({
   dealId,
@@ -249,10 +251,11 @@ export function DealView({
   showParties?: boolean;
   aliasOf?: (address: string) => string | null;
 }) {
+  useLang();
   const [deal, setDeal] = useState<Deal | null>(initial ?? null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState<string | null>(null);
+  const [note, setNote] = useState<Key | null>(null);
 
   const load = () =>
     stellar
@@ -288,64 +291,68 @@ export function DealView({
     try {
       await notify(action, hash, deal);
     } catch {
-      setNote(
-        action === "release"
-          ? "Pago liberado. No se pudo avisar al vendedor por chat, pero lo verá en sus pagos protegidos."
-          : "Fondos devueltos. No se pudo avisar por chat, pero se verá en los pagos protegidos.",
-      );
+      setNote(action === "release" ? "notifyFailRelease" : "notifyFailRefund");
     }
     await load();
     setBusy(false);
   }
 
   const counterpart = deal ? (iAmBuyer ? deal.seller : deal.buyer) : null;
+  const role = iAmBuyer ? t("roleBuyer") : iAmSeller ? t("roleSeller") : t("roleArbiter");
 
   return (
     <div className="space-y-2">
-      <div className="text-xs uppercase tracking-wide text-peach-300">
-        Pago protegido #{dealId}
-        {deal && <span className="text-ink-500"> · {iAmBuyer ? "compras" : iAmSeller ? "vendes" : "árbitro"}</span>}
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-cyan-300">
+        <ShieldCheck size={14} />
+        {t("protectedPaymentNo", { id: dealId })}
+        {deal && <span className="font-normal text-ink-400">· {role}</span>}
       </div>
       {showParties && counterpart && (
-        <div className="text-sm">
-          {iAmBuyer ? "Vendedor: " : "Comprador: "}
-          <PeerName address={counterpart} alias={aliasOf?.(counterpart) ?? null} />
+        <div className="text-sm text-ink-200">
+          {iAmBuyer ? t("seller") : t("buyer")}: <PeerName address={counterpart} alias={aliasOf?.(counterpart) ?? null} />
         </div>
       )}
-      <div className="text-lg font-semibold">
+      <div className="text-lg font-semibold text-white">
         {deal ? `${fromStroops(deal.amount)} ${assetOfToken(deal.token)}` : "…"}
       </div>
-      <div className="text-sm text-ink-300">
-        {status ? STATUS_LABEL[status] : error ? "" : "Consultando contrato…"}
+      <div className="text-sm">
+        {status ? (
+          <span className={STATUS_COLOR[status]}>{t(STATUS_LABEL[status])}</span>
+        ) : (
+          !error && <span className="text-ink-400">{t("queryingContract")}</span>
+        )}
         {deal && status === "Funded" && (
-          <span className="text-ink-500"> · vence {new Date(Number(deal.deadline) * 1000).toLocaleDateString("es")}</span>
+          <span className="text-ink-400">
+            {" "}
+            · {t("dueOn", { date: new Date(Number(deal.deadline) * 1000).toLocaleDateString(locale()) })}
+          </span>
         )}
       </div>
       {deal && (
-        <div className="text-xs text-ink-500">
-          Árbitro: <PeerName address={deal.arbiter} alias={null} />
+        <div className="text-xs text-ink-400">
+          {t("arbiter")}: <PeerName address={deal.arbiter} alias={null} />
         </div>
       )}
       {status === "Funded" && (
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 pt-1">
           {iAmBuyer && (
             <Button disabled={busy} onClick={() => act("release")}>
-              Recibí el producto: liberar pago
+              {t("releasePayment")}
             </Button>
           )}
           {iAmBuyer && expired && (
             <Button variant="ghost" disabled={busy} onClick={() => act("reclaim")}>
-              Recuperar fondos
+              {t("reclaimFunds")}
             </Button>
           )}
           {iAmSeller && (
             <Button variant="ghost" disabled={busy} onClick={() => act("cancel")}>
-              Cancelar y devolver
+              {t("cancelAndRefund")}
             </Button>
           )}
         </div>
       )}
-      {note && <p className="text-xs text-peach-300">{note}</p>}
+      {note && <p className="text-xs text-cyan-200">{t(note)}</p>}
       <ErrorText error={error} />
     </div>
   );
@@ -366,13 +373,14 @@ export function DealCard({
   getWallet: () => Promise<Wallet>;
   onUpdate: (p: Payload) => Promise<void>;
 }) {
+  useLang();
   if (payload.contract !== stellar.net.escrow) {
     return (
       <div className="space-y-1">
-        <div className="text-xs uppercase tracking-wide text-peach-300">Pago protegido #{payload.dealId}</div>
-        <p className="text-sm text-ink-400">
-          {payload.amount} {payload.asset} en una versión anterior del contrato.
-        </p>
+        <div className="text-xs font-semibold uppercase tracking-wide text-cyan-300">
+          {t("protectedPaymentNo", { id: payload.dealId })}
+        </div>
+        <p className="text-sm text-ink-400">{t("oldContract", { amount: payload.amount, asset: payload.asset })}</p>
         <ReceiptLinks hash={payload.hash} />
       </div>
     );
@@ -407,6 +415,7 @@ export function DealsPanel({
   aliasOf: (address: string) => string | null;
   onClose: () => void;
 }) {
+  useLang();
   const [deals, setDeals] = useState<{ id: string; deal: Deal }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -418,16 +427,13 @@ export function DealsPanel({
   }, [me]);
 
   return (
-    <Modal title="Mis pagos protegidos" onClose={onClose}>
-      <p className="text-xs text-ink-400">
-        Leídos directamente del contrato en la red: aparecen aunque se hayan borrado los mensajes, hayas cambiado
-        de dispositivo o bloqueado a alguien.
-      </p>
-      {!deals && !error && <p className="text-sm text-ink-400">Consultando contrato…</p>}
-      {deals?.length === 0 && <p className="text-sm text-ink-400">Aún no tienes pagos protegidos.</p>}
+    <Modal title={t("dealsTitle")} onClose={onClose}>
+      <p className="text-xs text-ink-400">{t("dealsIntro")}</p>
+      {!deals && !error && <p className="text-sm text-ink-400">{t("queryingContract")}</p>}
+      {deals?.length === 0 && <p className="text-sm text-ink-400">{t("noDeals")}</p>}
       <div className="space-y-3">
         {deals?.map(({ id, deal }) => (
-          <div key={id} className="rounded-xl border border-ink-800 p-3">
+          <div key={id} className="glass rounded-2xl p-3">
             <DealView
               dealId={id}
               me={me}

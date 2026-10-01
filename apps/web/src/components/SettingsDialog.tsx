@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { MAX_ALIAS_CHARS } from "@nodexchange/core";
+import { t, useLang } from "../lib/i18n.ts";
 import type { Account, Settings } from "../lib/store.ts";
 import { decryptSecret } from "../lib/wallet.ts";
-import { Button, ErrorText, Field, Input, Modal, PeerName, errorMessage } from "./ui.tsx";
+import { Button, ErrorText, Field, Input, LangToggle, Modal, PeerName, errorMessage } from "./ui.tsx";
+
+function Section({ children }: { children: ReactNode }) {
+  return <section className="space-y-2 border-t border-white/10 pt-4 first:border-0 first:pt-0">{children}</section>;
+}
 
 export function SettingsDialog({
   account,
@@ -29,6 +34,7 @@ export function SettingsDialog({
   onLogout: () => void;
   onClose: () => void;
 }) {
+  useLang();
   const [alias, setAlias] = useState(myAlias ?? "");
   const [savingAlias, setSavingAlias] = useState(false);
   const [password, setPassword] = useState("");
@@ -44,7 +50,7 @@ export function SettingsDialog({
     if (s) {
       setSecret(s);
       setError(null);
-    } else setError("Contraseña incorrecta.");
+    } else setError(t("wrongPassword"));
   }
 
   async function saveAlias() {
@@ -52,9 +58,9 @@ export function SettingsDialog({
     setError(null);
     try {
       await onSetAlias(alias.trim() || null);
-      setNote(alias.trim() ? "Alias actualizado." : "Alias eliminado.");
+      setNote(alias.trim() ? t("aliasUpdated") : t("aliasRemoved"));
     } catch (e) {
-      setError(/bad_alias|visible/.test(String(e)) ? `El alias debe tener de 1 a ${MAX_ALIAS_CHARS} caracteres visibles.` : errorMessage(e));
+      setError(/bad_alias|visible/.test(String(e)) ? t("aliasInvalid", { max: MAX_ALIAS_CHARS }) : errorMessage(e));
     } finally {
       setSavingAlias(false);
     }
@@ -64,29 +70,38 @@ export function SettingsDialog({
     setError(null);
     try {
       await onPublishNode();
-      setNote("Tu nodo quedó publicado en tu cuenta Stellar. Cualquiera puede encontrarte con tu dirección.");
+      setNote(t("nodePublished"));
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      setError(errorMessage(e));
     }
   }
 
   return (
-    <Modal title="Ajustes" onClose={onClose}>
-      <section className="space-y-2">
-        <Field
-          label="Tu alias"
-          hint="Lo ven las personas con las que hablas, siempre junto a tu dirección. No sirve para buscarte."
-        >
+    <Modal title={t("settings")} onClose={onClose}>
+      <Section>
+        <Field label={t("aliasLabel")} hint={t("aliasHint")}>
           <div className="flex gap-2">
-            <Input value={alias} maxLength={MAX_ALIAS_CHARS * 2} onChange={(e) => setAlias(e.target.value)} placeholder="Ej. Romer · Tienda" />
+            <Input
+              value={alias}
+              maxLength={MAX_ALIAS_CHARS * 2}
+              onChange={(e) => setAlias(e.target.value)}
+              placeholder={t("aliasPlaceholder")}
+            />
             <Button onClick={saveAlias} disabled={savingAlias || alias.trim() === (myAlias ?? "")}>
-              Guardar
+              {t("save")}
             </Button>
           </div>
         </Field>
-      </section>
+      </Section>
 
-      <section className="space-y-2 border-t border-ink-800 pt-4">
+      <Section>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium text-white">{t("language")}</span>
+          <LangToggle />
+        </div>
+      </Section>
+
+      <Section>
         <label className="flex items-start gap-3 text-sm">
           <input
             type="checkbox"
@@ -95,83 +110,88 @@ export function SettingsDialog({
             onChange={(e) => onSettings({ ...settings, volatile: e.target.checked })}
           />
           <span>
-            <b>Mensajes volátiles en este dispositivo</b>
-            <span className="block text-ink-400">
-              Las copias locales se borran 48 horas después de verlas. Desactívalo para conservarlas hasta que
-              las borres tú.
-            </span>
+            <span className="font-medium text-white">{t("volatileTitle")}</span>
+            <span className="block text-xs text-ink-400">{t("volatileBody")}</span>
           </span>
         </label>
-        <Button variant="ghost" className="w-full" onClick={() => { onClearHistory(); setNote("Historial local borrado."); }}>
-          Borrar todo el historial local
+        <Button
+          variant="ghost"
+          className="w-full"
+          onClick={() => {
+            onClearHistory();
+            setNote(t("historyCleared"));
+          }}
+        >
+          {t("clearHistory")}
         </Button>
-      </section>
+      </Section>
 
       {blocked.length > 0 && (
-        <section className="space-y-2 border-t border-ink-800 pt-4">
-          <p className="text-xs font-medium text-ink-400">Usuarios bloqueados</p>
+        <Section>
+          <p className="text-xs font-medium text-ink-300">{t("blockedUsers")}</p>
           {blocked.map((b) => (
             <div key={b.address} className="flex items-center justify-between gap-2">
               <PeerName address={b.address} alias={b.alias} />
               <Button variant="ghost" onClick={() => onUnblock(b.address)}>
-                Desbloquear
+                {t("unblock")}
               </Button>
             </div>
           ))}
-        </section>
+        </Section>
       )}
 
-      <section className="space-y-2 border-t border-ink-800 pt-4">
-        <p className="text-sm text-ink-400">
-          Nodo: <span className="break-all text-ink-300">{account.session.homeNode}</span>
+      <Section>
+        <p className="text-sm text-ink-300">
+          {t("node")}: <span className="break-all text-white">{account.session.homeNode}</span>
         </p>
-        <p className="text-xs text-ink-500">
-          Guarda la dirección de tu nodo dentro de tu cuenta Stellar, para que personas de <b>otros nodos</b> sepan
-          dónde dejarte mensajes. Si todos usan este mismo nodo no hace falta. Bloquea 0.5 XLM de reserva mientras
-          esté publicado.
-        </p>
+        <p className="text-xs text-ink-500">{t("publishNodeHelp")}</p>
         <Button variant="ghost" className="w-full" onClick={publish}>
-          Publicar mi nodo en mi cuenta Stellar
+          {t("publishNode")}
         </Button>
-      </section>
+      </Section>
 
       {local && (
-        <section className="space-y-2 border-t border-ink-800 pt-4">
+        <Section>
           {secret ? (
-            <code className="block break-all rounded-lg bg-ink-950 p-3 text-sm text-peach-300">{secret}</code>
+            <code className="block break-all rounded-xl border border-cyan-400/20 bg-black/40 p-3 text-sm text-cyan-200">
+              {secret}
+            </code>
           ) : (
             <>
-              <Field label="Ver mi clave secreta">
-                <Input type="password" placeholder="Contraseña" value={password} onChange={(e) => setPassword(e.target.value)} />
+              <Field label={t("revealSecret")}>
+                <Input
+                  type="password"
+                  placeholder={t("password")}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
               </Field>
               <Button variant="ghost" className="w-full" onClick={reveal}>
-                Mostrar clave
+                {t("showSecret")}
               </Button>
             </>
           )}
-        </section>
+        </Section>
       )}
 
-      <section className="space-y-2 border-t border-ink-800 pt-4">
+      <Section>
         {confirmLogout ? (
           <>
-            <p className="text-sm text-pink-300">
-              Se borrarán tus mensajes, tus llaves de chat
-              {local && " y tu billetera"} de este navegador.
-              {local && " Si no guardaste tu clave secreta, perderás tus fondos."}
+            <p className="text-sm text-ruby-300">
+              {t("logoutWarn")} {local && t("logoutWarnLocal")}
             </p>
             <Button variant="danger" className="w-full" onClick={onLogout}>
-              Sí, borrar todo de este dispositivo
+              {t("confirmLogout")}
             </Button>
           </>
         ) : (
           <Button variant="danger" className="w-full" onClick={() => setConfirmLogout(true)}>
-            Cerrar sesión y borrar datos locales
+            {t("logout")}
           </Button>
         )}
-      </section>
+      </Section>
 
-      {note && <p className="text-sm text-mint-400">{note}</p>}
+      {note && <p className="text-sm text-emerald-300">{note}</p>}
       <ErrorText error={error} />
     </Modal>
   );

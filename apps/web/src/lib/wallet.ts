@@ -17,6 +17,7 @@ import {
   type WalletSigner,
 } from "@nodexchange/core";
 import { stellar } from "./config.ts";
+import { t } from "./i18n.ts";
 
 export interface Wallet {
   kind: "local" | "external";
@@ -97,7 +98,7 @@ function externalWallet(address: string): Wallet {
       });
       const sig = normalizeSignature(signedMessage);
       if (!(await verifyWalletSignature(address, message, sig))) {
-        throw new Error("Tu billetera devolvió una firma que no se pudo verificar (SEP-53).");
+        throw new Error(t("badWalletSignature"));
       }
       return sig;
     },
@@ -116,7 +117,7 @@ export async function connectExternal(expected?: string): Promise<Wallet> {
   initKit();
   const { address } = await StellarWalletsKit.authModal();
   if (expected && address !== expected) {
-    throw new Error(`Conecta la cuenta ${short(expected)}; elegiste ${short(address)}.`);
+    throw new Error(t("wrongAccount", { expected: short(expected), chosen: short(address) }));
   }
   return externalWallet(address);
 }

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Messenger } from "./components/Messenger.tsx";
 import { Onboarding, Shell } from "./components/Onboarding.tsx";
 import { Button, ErrorText, Field, Input } from "./components/ui.tsx";
+import { t, useLang } from "./lib/i18n.ts";
 import { clearAll, loadAccount, type Account } from "./lib/store.ts";
 import { decryptSecret, localWallet, short, type Wallet } from "./lib/wallet.ts";
 
@@ -19,6 +20,7 @@ function initialPhase(): Phase {
 }
 
 export function App() {
+  useLang();
   const [phase, setPhase] = useState<Phase>(initialPhase);
 
   if (phase.k === "onboarding") {
@@ -66,13 +68,13 @@ function Unlock({
     const secret = await decryptSecret(account.wallet.secret, password);
     setBusy(false);
     if (secret) onUnlock(localWallet(secret));
-    else setError("Contraseña incorrecta.");
+    else setError(t("wrongPassword"));
   }
 
   return (
     <Shell>
-      <p className="text-sm text-ink-400">
-        Desbloquea la billetera <span className="font-mono text-ink-200">{short(account.session.address)}</span>
+      <p className="text-sm text-ink-300">
+        {t("unlockPrompt")} <span className="font-mono text-white">{short(account.session.address)}</span>
       </p>
       <form
         className="space-y-3"
@@ -81,21 +83,21 @@ function Unlock({
           void unlock();
         }}
       >
-        <Field label="Contraseña">
+        <Field label={t("password")}>
           <Input type="password" autoFocus value={password} onChange={(e) => setPassword(e.target.value)} />
         </Field>
         <Button type="submit" disabled={busy || !password} className="w-full">
-          {busy ? "Descifrando…" : "Desbloquear"}
+          {busy ? t("decrypting") : t("unlock")}
         </Button>
       </form>
       <ErrorText error={error} />
       {confirmReset ? (
         <Button variant="danger" className="w-full" onClick={onReset}>
-          Borrar esta billetera de este navegador (necesitarás tu clave secreta)
+          {t("resetWallet")}
         </Button>
       ) : (
         <button className="text-xs text-ink-500 hover:text-ink-300" onClick={() => setConfirmReset(true)}>
-          ¿Olvidaste la contraseña?
+          {t("forgotPassword")}
         </button>
       )}
     </Shell>
