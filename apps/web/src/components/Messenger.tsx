@@ -296,7 +296,8 @@ export function Messenger({
   const xlm = balances ? Number(balances.XLM).toLocaleString(locale(), { maximumFractionDigits: 2 }) : "…";
 
   return (
-    <div className="flex h-dvh flex-col overflow-hidden">
+    // Pinned to the visible viewport, so the on-screen keyboard never pushes it away.
+    <div className="fixed inset-x-0 top-[var(--app-top,0px)] flex h-[var(--app-h,100dvh)] flex-col overflow-hidden">
       <header className="nx-glass relative z-30 flex items-center gap-2 rounded-none border-x-0 border-t-0 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4">
         <h1 className="shrink-0 text-lg">
           <Logo />
@@ -646,6 +647,15 @@ function ChatPane(props: {
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages.length]);
+
+  // When the keyboard opens, keep the latest messages in view.
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    const keep = () => bottom.current?.scrollIntoView({ block: "end" });
+    vv.addEventListener("resize", keep);
+    return () => vv.removeEventListener("resize", keep);
+  }, []);
 
   async function run(fn: () => Promise<void>) {
     setBusy(true);

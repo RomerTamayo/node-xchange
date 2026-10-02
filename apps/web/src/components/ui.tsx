@@ -61,11 +61,14 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
   }, [onClose]);
   return (
     // Bottom sheet on phones, centred card from `sm` up.
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
+    <div
+      className="fixed inset-x-0 top-[var(--app-top,0px)] z-50 flex h-[var(--app-h,100dvh)] items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4"
+      onClick={onClose}
+    >
       <div
         role="dialog"
         aria-label={title}
-        className="nx-glass max-h-[92dvh] w-full min-w-0 max-w-md space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-2xl rounded-b-none bg-ink-950/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-2xl sm:bg-ink-950/70 sm:p-5"
+        className="nx-glass max-h-[calc(var(--app-h,100dvh)*0.92)] w-full min-w-0 max-w-md space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-2xl rounded-b-none bg-ink-950/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-2xl sm:bg-ink-950/70 sm:p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between gap-2">
