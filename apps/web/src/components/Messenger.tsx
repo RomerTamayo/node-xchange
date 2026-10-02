@@ -5,8 +5,11 @@ import {
   Ban,
   Coins,
   Copy,
+  CreditCard,
   Droplets,
+  ExternalLink,
   HandCoins,
+  Languages,
   Lock,
   MoreVertical,
   Plus,
@@ -18,19 +21,23 @@ import {
   Wallet as WalletIcon,
 } from "lucide-react";
 import {
+  EXT_NETWORKS,
   MAX_MESSAGE_CHARS,
   NodeClient,
   Session,
   isAddress,
+  parseExtRecord,
+  type ExtMethodRecord,
   type NodeInfo,
   type Payload,
 } from "@nodexchange/core";
 import { stellar } from "../lib/config.ts";
-import { locale, t, useLang } from "../lib/i18n.ts";
+import { getLang, locale, setLang, t, useLang } from "../lib/i18n.ts";
 import { clearAll, loadSettings, saveSettings, type Account, type LocalMessage } from "../lib/store.ts";
 import type { Unlocked } from "../lib/vault.ts";
 import { useChats } from "../lib/useChats.ts";
 import { connectExternal, short, type Wallet } from "../lib/wallet.ts";
+import { ExtPayDialog, MethodCard, MyMethodsDialog, ShareMethodDialog } from "./ExternalMethods.tsx";
 import { DealCard, DealDialog, DealsPanel, PayDialog, ReceiptLinks, WithdrawDialog } from "./Payments.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
 import {
@@ -102,7 +109,9 @@ export function Messenger({
   const [wallet, setWallet] = useState<Wallet | null>(initialWallet);
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [balances, setBalances] = useState<{ XLM: string; USDC: string | null } | null>(null);
-  const [dialog, setDialog] = useState<"pay" | "deal" | "deals" | "withdraw" | "settings" | null>(null);
+  const [dialog, setDialog] = useState<
+    "pay" | "deal" | "deals" | "withdraw" | "settings" | "methods" | "extpay" | "share" | null
+  >(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [newPeer, setNewPeer] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -214,6 +223,12 @@ export function Messenger({
       icon: <ArrowUpRight size={16} className="text-emerald-300" />,
       onSelect: () => setDialog("withdraw"),
     },
+    {
+      label: t("extMethods"),
+      hint: t("extMethodsHint"),
+      icon: <CreditCard size={16} className="text-amber-300" />,
+      onSelect: () => setDialog("methods"),
+    },
   ];
   if (balances && balances.USDC === null) {
     walletItems.push({
@@ -240,18 +255,18 @@ export function Messenger({
   const xlm = balances ? Number(balances.XLM).toLocaleString(locale(), { maximumFractionDigits: 2 }) : "…";
 
   return (
-    <div className="flex h-dvh flex-col">
-      <header className="nx-glass relative z-30 flex items-center gap-2 rounded-none border-x-0 border-t-0 px-3 py-2 sm:gap-3 sm:px-4">
-        <h1 className="text-lg">
+    <div className="flex h-dvh flex-col overflow-hidden">
+      <header className="nx-glass relative z-30 flex items-center gap-2 rounded-none border-x-0 border-t-0 px-3 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] sm:gap-3 sm:px-4">
+        <h1 className="shrink-0 text-lg">
           <Logo />
         </h1>
-        <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex min-w-0 items-center gap-1.5 sm:gap-2">
           <Menu
             label={t("wallet")}
             trigger={
               <>
                 <WalletIcon size={16} className="text-cyan-300" />
-                <span className="max-w-[7rem] truncate">{chats.myAlias ?? short(me)}</span>
+                <span className="max-w-[6rem] truncate sm:max-w-[7rem]">{chats.myAlias ?? short(me)}</span>
                 <span className="hidden text-ink-300 sm:inline">· {xlm} XLM</span>
               </>
             }
@@ -273,19 +288,40 @@ export function Messenger({
             }
             items={walletItems}
           />
-          <Button variant="ghost" aria-label={t("deals")} title={t("deals")} onClick={() => setDialog("deals")}>
-            <ShieldCheck size={16} className="text-cyan-300" />
-            <span className="hidden lg:inline">{t("deals")}</span>
-          </Button>
-          <Button variant="ghost" aria-label={t("refresh")} title={t("refresh")} onClick={refreshAll} disabled={refreshing}>
-            <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
-          </Button>
-          <Button variant="ghost" aria-label={t("settings")} title={t("settings")} onClick={() => setDialog("settings")}>
-            <SettingsIcon size={16} />
-          </Button>
-          <Button variant="ghost" aria-label={t("lockSession")} title={t("lockSession")} onClick={onLock}>
-            <Lock size={16} />
-          </Button>
+          <div className="hidden items-center gap-2 sm:flex">
+            <Button variant="ghost" aria-label={t("deals")} title={t("deals")} onClick={() => setDialog("deals")}>
+              <ShieldCheck size={16} className="text-cyan-300" />
+              <span className="hidden lg:inline">{t("deals")}</span>
+            </Button>
+            <Button variant="ghost" aria-label={t("refresh")} title={t("refresh")} onClick={refreshAll} disabled={refreshing}>
+              <RefreshCw size={16} className={refreshing ? "animate-spin" : ""} />
+            </Button>
+            <Button variant="ghost" aria-label={t("settings")} title={t("settings")} onClick={() => setDialog("settings")}>
+              <SettingsIcon size={16} />
+            </Button>
+            <Button variant="ghost" aria-label={t("lockSession")} title={t("lockSession")} onClick={onLock}>
+              <Lock size={16} />
+            </Button>
+          </div>
+          {/* On phones the header actions collapse into one menu. */}
+          <div className="sm:hidden">
+            <Menu
+              label={t("moreOptions")}
+              chevron={false}
+              trigger={refreshing ? <RefreshCw size={16} className="animate-spin" /> : <MoreVertical size={16} />}
+              items={[
+                { label: t("deals"), icon: <ShieldCheck size={16} className="text-cyan-300" />, onSelect: () => setDialog("deals") },
+                { label: t("refresh"), icon: <RefreshCw size={16} />, onSelect: () => void refreshAll() },
+                { label: t("settings"), icon: <SettingsIcon size={16} />, onSelect: () => setDialog("settings") },
+                { label: t("lockSession"), icon: <Lock size={16} />, onSelect: onLock },
+                {
+                  label: getLang() === "es" ? "English" : "Español",
+                  icon: <Languages size={16} />,
+                  onSelect: () => setLang(getLang() === "es" ? "en" : "es"),
+                },
+              ]}
+            />
+          </div>
           <div className="hidden sm:block">
             <LangToggle />
           </div>
@@ -343,6 +379,11 @@ export function Messenger({
               onDelete={(ids) => chats.remove(peer, ids)}
               onPay={() => setDialog("pay")}
               onDeal={() => setDialog("deal")}
+              onExtPay={() => {
+                chats.lookup(peer).catch(() => {});
+                setDialog("extpay");
+              }}
+              onShareMethod={() => setDialog("share")}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-ink-400">
@@ -371,6 +412,30 @@ export function Messenger({
             await chats.send(to, payload);
             refreshBalances();
           }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "methods" && (
+        <MyMethodsDialog
+          me={me}
+          methods={chats.myMethods}
+          getWallet={getWallet}
+          onSave={chats.setMyMethods}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "extpay" && peer && (
+        <ExtPayDialog
+          peer={peer}
+          publicMethods={chats.peerMethods[peer] ?? []}
+          sharedMethods={sharedMethodsOf(conversation?.messages ?? [])}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "share" && peer && (
+        <ShareMethodDialog
+          methods={chats.myMethods}
+          onShare={(rec) => sendPayload({ t: "method", rec })}
           onClose={() => setDialog(null)}
         />
       )}
@@ -406,6 +471,17 @@ export function Messenger({
   );
 }
 
+/** Latest valid method cards the peer sent in this chat, one per method id. */
+function sharedMethodsOf(messages: LocalMessage[]): ExtMethodRecord[] {
+  const byId = new Map<string, ExtMethodRecord>();
+  for (const m of messages) {
+    if (m.dir !== "in" || m.payload.t !== "method") continue;
+    const rec = parseExtRecord(m.payload.rec);
+    if (rec) byId.set(rec.method.id, rec);
+  }
+  return [...byId.values()].reverse();
+}
+
 function SectionLabel({ children, className = "text-ink-400" }: { children: React.ReactNode; className?: string }) {
   return <div className={`px-3 pb-1 pt-3 text-[11px] font-semibold uppercase tracking-wider ${className}`}>{children}</div>;
 }
@@ -415,6 +491,7 @@ function preview(m?: LocalMessage): string {
   const p = m.payload;
   if (p.t === "text") return p.body;
   if (p.t === "pay") return t("previewPay", { amount: p.amount, asset: p.asset });
+  if (p.t === "method") return t("previewMethod", { tag: EXT_NETWORKS[p.rec?.method?.network]?.tag ?? "" });
   if (p.status === "released") return t("previewDealReleased", { id: p.dealId });
   if (p.status === "refunded") return t("previewDealRefunded", { id: p.dealId });
   return t("previewDeal", { amount: p.amount, asset: p.asset });
@@ -472,6 +549,8 @@ function ChatPane(props: {
   onDelete: (ids: string[]) => Promise<{ unsent: number; kept: number }>;
   onPay: () => void;
   onDeal: () => void;
+  onExtPay: () => void;
+  onShareMethod: () => void;
 }) {
   const { me, peer, messages, request, blocked } = props;
   const [text, setText] = useState("");
@@ -538,6 +617,7 @@ function ChatPane(props: {
               items={[
                 { label: t("directPayment"), hint: t("directPaymentHint"), icon: <Send size={16} className="text-emerald-300" />, onSelect: props.onPay },
                 { label: t("protectedPayment"), hint: t("protectedPaymentHint"), icon: <ShieldCheck size={16} className="text-cyan-300" />, onSelect: props.onDeal },
+                { label: t("extPayment"), hint: t("extPaymentHint"), icon: <ExternalLink size={16} className="text-amber-300" />, onSelect: props.onExtPay },
               ]}
             />
             <Menu
@@ -546,6 +626,7 @@ function ChatPane(props: {
               trigger={<MoreVertical size={16} />}
               items={[
                 { label: t("copyAddress"), icon: <Copy size={16} />, onSelect: () => navigator.clipboard.writeText(peer) },
+                { label: t("shareExtMethod"), icon: <CreditCard size={16} className="text-amber-300" />, onSelect: props.onShareMethod },
                 { label: t("block"), icon: <Ban size={16} />, danger: true, onSelect: props.onBlock },
               ]}
             />
@@ -599,6 +680,20 @@ function ChatPane(props: {
                   <ReceiptLinks hash={m.payload.hash} />
                 </div>
               )}
+              {m.payload.t === "method" && (
+                <div className="w-72 max-w-full space-y-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-amber-300">
+                    <CreditCard size={14} />
+                    {t("extSharedCard")}
+                  </div>
+                  {parseExtRecord(m.payload.rec) ? (
+                    <MethodCard rec={m.payload.rec} owner={m.dir === "in" ? peer : me} />
+                  ) : (
+                    <p className="text-xs text-ruby-300">{t("extVerdictInvalid")}</p>
+                  )}
+                  {m.dir === "in" && <p className="text-[11px] text-amber-200/80">{t("extNoProtection", { tag: EXT_NETWORKS.bep20.tag })}</p>}
+                </div>
+              )}
               {m.payload.t === "deal" && m.payload.status === "funded" && (
                 <DealCard
                   payload={m.payload}
@@ -637,7 +732,7 @@ function ChatPane(props: {
       </div>
 
       <form
-        className="space-y-1 border-t border-white/10 bg-black/20 p-2 sm:p-3"
+        className="space-y-1 border-t border-white/10 bg-black/20 p-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:p-3"
         onSubmit={(e) => {
           e.preventDefault();
           if (!text.trim() || chars > MAX_MESSAGE_CHARS) return;

@@ -10,6 +10,7 @@
 
 import nacl from "tweetnacl";
 import { decodeAddress, fromBase64, isAddress, utf8 } from "./encoding.ts";
+import { MAX_PUBLIC_EXT_METHODS, parseExtRecord, type ExtMethodRecord } from "./extpay.ts";
 
 export const PROTOCOL_VERSION = 1;
 /** Maximum characters of a text message. */
@@ -63,7 +64,9 @@ export type Payload =
       asset: string;
       status: "funded" | "released" | "refunded";
       hash: string;
-    };
+    }
+  /** An external payment method shared privately in a chat. */
+  | { t: "method"; rec: ExtMethodRecord };
 
 export type Action =
   | { action: "register"; data: Record<string, never> }
@@ -73,7 +76,8 @@ export type Action =
   | { action: "delete"; data: { ids: string[] } }
   | { action: "unsend"; data: { id: string } }
   | { action: "contact"; data: { peer: string; status: "accepted" | "blocked" | "none" } }
-  | { action: "profile"; data: { alias: string | null } };
+  | { action: "profile"; data: { alias: string | null } }
+  | { action: "methods"; data: { methods: ExtMethodRecord[] } };
 
 export type RequestBody = Action & { ts: number; node: string };
 
@@ -175,21 +179,51 @@ export function normalizeAlias(alias: string | null): string | null {
   return clean;
 }
 
+/** The body of a stored request, if the device in `cert` really signed it. */
+function signedBody(cert: CertBody, stored: SignedProfile | null | undefined): RequestBody | null {
+  if (!stored) return null;
+  try {
+    const ok = nacl.sign.detached.verify(utf8(stored.req), fromBase64(stored.sig), fromBase64(cert.signPub));
+    return ok ? (JSON.parse(stored.req) as RequestBody) : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Returns the alias in a profile signed by the device in `cert`, or null. */
 export function verifyProfile(cert: CertBody, profile: SignedProfile | null | undefined): string | null {
-  if (!profile) return null;
+  const body = signedBody(cert, profile);
+  if (body?.action !== "profile") return null;
   try {
-    const ok = nacl.sign.detached.verify(
-      utf8(profile.req),
-      fromBase64(profile.sig),
-      fromBase64(cert.signPub),
-    );
-    if (!ok) return null;
-    const body = JSON.parse(profile.req) as RequestBody;
-    if (body.action !== "profile") return null;
     return normalizeAlias(body.data.alias);
   } catch {
     return null;
+  }
+}
+
+/** Checks the shape and count of a public method list; throws on bad input. */
+export function validateMethodList(methods: unknown): ExtMethodRecord[] {
+  if (!Array.isArray(methods) || methods.length > MAX_PUBLIC_EXT_METHODS) {
+    throw new ProtocolError("bad_method", `at most ${MAX_PUBLIC_EXT_METHODS} public payment methods`);
+  }
+  return methods.map((m) => {
+    const rec = parseExtRecord(m);
+    if (!rec) throw new ProtocolError("bad_method", "malformed external payment method");
+    return rec;
+  });
+}
+
+/**
+ * Public external payment methods signed by the device in `cert`. Each one
+ * still has to be checked with `verifyExtRecord` before showing it as trusted.
+ */
+export function verifyMethods(cert: CertBody, stored: SignedProfile | null | undefined): ExtMethodRecord[] {
+  const body = signedBody(cert, stored);
+  if (body?.action !== "methods") return [];
+  try {
+    return validateMethodList(body.data.methods).filter((r) => r.method.owner === cert.address);
+  } catch {
+    return [];
   }
 }
 

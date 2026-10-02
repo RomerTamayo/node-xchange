@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Payload, Session } from "@nodexchange/core";
-import { loadChats, purge, saveChats, type Chats, type LocalMessage } from "./store.ts";
+import type { ExtMethodRecord, Payload, Session } from "@nodexchange/core";
+import { loadChats, purge, saveChats, type Chats, type LocalMessage, type MyMethod } from "./store.ts";
 
 const POLL_MS = 4000;
 const ALIAS_TTL_MS = 60 * 1000;
@@ -25,6 +25,8 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
   const chatsRef = useRef(chats);
   chatsRef.current = chats;
   const aliasInFlight = useRef(new Set<string>());
+  /** Public external payment methods of peers, as their node returned them. */
+  const [peerMethods, setPeerMethods] = useState<Record<string, ExtMethodRecord[]>>({});
 
   const update = useCallback(
     (fn: (c: Chats) => Chats) => {
@@ -92,8 +94,9 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
   /** Fetches the alias of `peer` from their node; throws if they aren't on NodeXchange. */
   const lookup = useCallback(
     async (peer: string) => {
-      const { alias } = await session.peer(peer);
+      const { alias, methods } = await session.peer(peer);
       update((c) => ({ ...c, aliases: { ...c.aliases, [peer]: { alias, at: Date.now() } } }));
+      setPeerMethods((m) => ({ ...m, [peer]: methods }));
       return alias;
     },
     [session, update],
@@ -132,6 +135,17 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
     async (alias: string | null) => {
       const res = await session.setAlias(alias);
       update((c) => ({ ...c, myAlias: res.alias }));
+    },
+    [session, update],
+  );
+
+  /** Saves our method list and republishes the public ones when they change. */
+  const setMyMethods = useCallback(
+    async (next: MyMethod[]) => {
+      const publicOf = (list: MyMethod[]) => list.filter((m) => m.public).map((m) => m.rec);
+      const before = JSON.stringify(publicOf(chatsRef.current.myMethods));
+      if (JSON.stringify(publicOf(next)) !== before) await session.setMethods(publicOf(next));
+      update((c) => ({ ...c, myMethods: next }));
     },
     [session, update],
   );
@@ -247,6 +261,9 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
     error,
     blocked: chats.blocked,
     myAlias: chats.myAlias,
+    myMethods: chats.myMethods,
+    setMyMethods,
+    peerMethods,
     aliasOf,
     lookup,
     setMyAlias,

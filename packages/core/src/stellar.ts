@@ -168,6 +168,20 @@ export class Stellar {
     return raw ? fromUtf8(fromBase64(raw)) : null;
   }
 
+  /** Raw value (base64) of an account data entry, or null. */
+  async dataEntry(address: string, key: string): Promise<string | null> {
+    const acc = await this.account(address);
+    return acc?.data_attr?.[key] ?? null;
+  }
+
+  /**
+   * Writes (or with null, removes) an external payment method's hash as a data
+   * entry. Each entry locks a 0.5 XLM reserve, released when it is removed.
+   */
+  async anchorExtMethod(address: string, key: string, hash: Uint8Array | null, signer: TxSigner): Promise<string> {
+    return this.submit(address, signer, (b) => b.addOperation(Operation.manageData({ name: key, value: hash })));
+  }
+
   private async submit(
     source: string,
     signer: TxSigner,

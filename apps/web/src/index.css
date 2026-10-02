@@ -32,18 +32,30 @@
 }
 
 @layer base {
+  /* The base colour on html too, so overscroll and the area behind mobile
+     browser bars never show a different shade. */
   html {
     color-scheme: dark;
+    background-color: var(--color-ink-950);
+    overscroll-behavior: none;
   }
   body {
     min-height: 100dvh;
+    overflow-x: hidden;
     color: var(--color-ink-100);
-    background-color: var(--color-ink-950);
+  }
+  /* Aurora on a fixed layer: `background-attachment: fixed` is unreliable on
+     mobile browsers and leaves a band when the address bar hides. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: -10vh 0;
+    z-index: -1;
+    pointer-events: none;
     background-image:
       radial-gradient(60rem 36rem at -10% -15%, rgb(139 92 246 / 0.22), transparent 60%),
       radial-gradient(50rem 30rem at 110% 0%, rgb(34 211 238 / 0.16), transparent 60%),
       radial-gradient(55rem 35rem at 50% 115%, rgb(16 185 129 / 0.12), transparent 60%);
-    background-attachment: fixed;
   }
   button:not(:disabled) {
     cursor: pointer;

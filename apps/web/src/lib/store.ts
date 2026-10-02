@@ -1,7 +1,7 @@
 // Everything this browser remembers. The node is only a temporary mailbox;
 // history lives here, and by default it is volatile too (see `purge`).
 
-import { READ_TTL_MS, UNREAD_TTL_MS, type Payload, type SessionState } from "@nodexchange/core";
+import { READ_TTL_MS, UNREAD_TTL_MS, type ExtMethodRecord, type Payload, type SessionState } from "@nodexchange/core";
 import { isSealed, open, seal, type Sealed, type WrappedKey } from "./vault.ts";
 import type { EncryptedSecret } from "./wallet.ts";
 
@@ -61,6 +61,12 @@ export interface LocalMessage {
   seenAt?: number;
 }
 
+/** One of our external payment methods. Public ones are published on the node. */
+export interface MyMethod {
+  rec: ExtMethodRecord;
+  public: boolean;
+}
+
 export interface Chats {
   messages: Record<string, LocalMessage[]>; // by peer
   /** Ids the user deleted locally, so the inbox poll doesn't bring them back. */
@@ -71,6 +77,7 @@ export interface Chats {
   aliases: Record<string, { alias: string | null; at: number }>;
   /** The alias we published for ourselves. */
   myAlias: string | null;
+  myMethods: MyMethod[];
 }
 
 const emptyChats = (): Chats => ({
@@ -80,6 +87,7 @@ const emptyChats = (): Chats => ({
   blocked: [],
   aliases: {},
   myAlias: null,
+  myMethods: [],
 });
 
 /**

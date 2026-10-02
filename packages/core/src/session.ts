@@ -21,8 +21,10 @@ import {
   type SignedProfile,
   type SignedRequest,
   normalizeAlias,
+  verifyMethods,
   verifyProfile,
 } from "./protocol.ts";
+import type { ExtMethodRecord } from "./extpay.ts";
 import type { Stellar } from "./stellar.ts";
 
 export interface NodeInfo {
@@ -71,12 +73,14 @@ export class NodeClient {
     return this.json(await fetch(`${this.url}/info`));
   }
 
-  /** A registered user's device certificate and (signed) profile. */
-  async keys(address: string): Promise<{ cert: DeviceCert; profile: SignedProfile | null } | null> {
+  /** A registered user's device certificate, (signed) profile and public payment methods. */
+  async keys(
+    address: string,
+  ): Promise<{ cert: DeviceCert; profile: SignedProfile | null; methods: SignedProfile | null } | null> {
     const res = await fetch(`${this.url}/keys/${address}`);
     if (res.status === 404) return null;
-    const data = await this.json<{ cert: DeviceCert; profile?: SignedProfile | null }>(res);
-    return { cert: data.cert, profile: data.profile ?? null };
+    const data = await this.json<{ cert: DeviceCert; profile?: SignedProfile | null; methods?: SignedProfile | null }>(res);
+    return { cert: data.cert, profile: data.profile ?? null, methods: data.methods ?? null };
   }
 
   async cert(address: string): Promise<DeviceCert | null> {
@@ -150,14 +154,17 @@ export class Session {
     return node;
   }
 
-  /** Verified certificate and alias of `peer`, fetched from their home node. */
-  async peer(peer: string): Promise<{ cert: CertBody; alias: string | null }> {
+  /**
+   * Verified certificate, alias and public payment methods of `peer`, fetched
+   * from their home node. Methods still need `verifyExtRecord`.
+   */
+  async peer(peer: string): Promise<{ cert: CertBody; alias: string | null; methods: ExtMethodRecord[] }> {
     const node = await this.nodeOf(peer);
     const keys = await new NodeClient(node).keys(peer);
     if (!keys) throw new ProtocolError("unknown_peer", "this address is not on NodeXchange yet", 404);
     const cert = await verifyCert(keys.cert);
     if (cert.address !== peer) throw new ProtocolError("bad_cert", "node returned a foreign certificate");
-    return { cert, alias: verifyProfile(cert, keys.profile) };
+    return { cert, alias: verifyProfile(cert, keys.profile), methods: verifyMethods(cert, keys.methods) };
   }
 
   async peerCert(peer: string): Promise<CertBody> {
@@ -167,6 +174,11 @@ export class Session {
   /** Sets (or clears, with null) the alias others see next to our address. */
   async setAlias(alias: string | null): Promise<{ ok: true; alias: string | null }> {
     return this.home({ action: "profile", data: { alias: normalizeAlias(alias) } });
+  }
+
+  /** Replaces the external payment methods published on our profile. */
+  setMethods(methods: ExtMethodRecord[]): Promise<{ ok: true }> {
+    return this.home({ action: "methods", data: { methods } });
   }
 
   async send(peer: string, payload: Payload): Promise<Envelope> {

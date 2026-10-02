@@ -17,6 +17,7 @@ import {
   UNREAD_TTL_MS,
   normalizeAlias,
   validateEnvelope,
+  validateMethodList,
   verifyRequest,
   type CertBody,
   type RequestBody,
@@ -90,7 +91,7 @@ async function keys(address: string) {
   const row = check(
     await db
       .from("nx_devices")
-      .select("cert_body, cert_sig, profile_req, profile_sig")
+      .select("cert_body, cert_sig, profile_req, profile_sig, methods_req, methods_sig")
       .eq("address", address)
       .maybeSingle(),
   );
@@ -98,6 +99,7 @@ async function keys(address: string) {
   return json({
     cert: { body: row.cert_body, sig: row.cert_sig },
     profile: row.profile_req ? { req: row.profile_req, sig: row.profile_sig } : null,
+    methods: row.methods_req ? { req: row.methods_req, sig: row.methods_sig } : null,
   });
 }
 
@@ -123,6 +125,8 @@ async function handle(signed: SignedRequest) {
       return await contact(cert.address, body.data.peer, body.data.status);
     case "profile":
       return await profile(signed, cert.address, body.data.alias);
+    case "methods":
+      return await methods(signed, cert.address, body.data.methods);
   }
   return fail("bad_request", "unknown action", 400);
 }
@@ -155,6 +159,8 @@ async function register(signed: SignedRequest, cert: CertBody) {
       // A new device can't vouch for a profile signed by the previous one.
       profile_req: null,
       profile_sig: null,
+      methods_req: null,
+      methods_sig: null,
       updated_at: new Date().toISOString(),
     }),
   );
@@ -175,6 +181,25 @@ async function profile(signed: SignedRequest, address: string, alias: string | n
       .eq("address", address),
   );
   return json({ ok: true, alias: clean });
+}
+
+/** Same idea as the profile: the signed request is stored verbatim. */
+async function methods(signed: SignedRequest, address: string, list: unknown) {
+  const clean = validateMethodList(list);
+  if (clean.some((r) => r.method.owner !== address)) {
+    throw new ProtocolError("bad_method", "payment methods must belong to the sender");
+  }
+  check(
+    await db
+      .from("nx_devices")
+      .update({
+        methods_req: clean.length ? signed.req : null,
+        methods_sig: clean.length ? signed.sig : null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("address", address),
+  );
+  return json({ ok: true });
 }
 
 async function contactStatus(owner: string, peer: string): Promise<string | null> {

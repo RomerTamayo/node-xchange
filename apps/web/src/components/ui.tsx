@@ -59,15 +59,16 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 backdrop-blur-sm sm:p-4" onClick={onClose}>
+    // Bottom sheet on phones, centred card from `sm` up.
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 backdrop-blur-sm sm:items-center sm:p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-label={title}
-        className="nx-glass max-h-[90dvh] w-full max-w-md space-y-4 overflow-y-auto rounded-2xl bg-ink-950/70 p-5"
+        className="nx-glass max-h-[92dvh] w-full min-w-0 max-w-md space-y-4 overflow-y-auto overflow-x-hidden overscroll-contain rounded-t-2xl rounded-b-none bg-ink-950/90 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:rounded-2xl sm:bg-ink-950/70 sm:p-5"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between">
-          <h2 className="font-semibold text-white">{title}</h2>
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="min-w-0 font-semibold text-white">{title}</h2>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-400 hover:bg-white/10 hover:text-white" aria-label={t("close")}>
             <X size={18} />
           </button>
@@ -220,7 +221,7 @@ export function Menu({
       {open && (
         <div
           role="menu"
-          className={`nx-glass absolute z-40 mt-2 w-64 overflow-hidden rounded-2xl bg-ink-950/85 p-1.5 ${align === "right" ? "right-0" : "left-0"}`}
+          className={`nx-glass absolute z-40 mt-2 w-64 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-2xl bg-ink-950/85 p-1.5 ${align === "right" ? "right-0" : "left-0"}`}
         >
           {header && <div className="border-b border-white/10 px-3 py-2">{header}</div>}
           {items.map((item) => (
