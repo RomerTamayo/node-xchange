@@ -6,6 +6,7 @@ import {
   type InputHTMLAttributes,
   type ReactNode,
 } from "react";
+import QRCode from "qrcode";
 import { ChevronDown, X } from "lucide-react";
 import { setLang, t, useLang } from "../lib/i18n.ts";
 
@@ -77,6 +78,15 @@ export function Modal({ title, onClose, children }: { title: string; onClose: ()
       </div>
     </div>
   );
+}
+
+/** A QR code on a white tile (scanners need the contrast). */
+export function Qr({ text, size = 180 }: { text: string; size?: number }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    QRCode.toDataURL(text, { margin: 1, width: size * 2 }).then(setSrc).catch(() => setSrc(null));
+  }, [text, size]);
+  return src ? <img src={src} alt="QR" className="mx-auto rounded-lg bg-white p-1" width={size} height={size} /> : null;
 }
 
 export function ErrorText({ error }: { error: string | null }) {

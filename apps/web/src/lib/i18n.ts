@@ -62,7 +62,7 @@ const es = {
   language: "Idioma",
 
   // sidebar
-  newChatPlaceholder: "Dirección G… para chatear",
+  newChatPlaceholder: "Dirección G… o enlace",
   newChat: "Nuevo chat",
   invalidAddress: "Dirección Stellar inválida (empieza con G, 56 caracteres).",
   ownAddress: "Esa es tu propia dirección.",
@@ -298,6 +298,27 @@ const es = {
   extShare: "Compartir",
   extSharedCard: "Dirección externa",
   previewMethod: "Dirección externa {tag}",
+
+  // contacts and invites
+  contacts: "Contactos",
+  myQr: "Mi código QR",
+  myQrHint: "Para que te agreguen en persona",
+  myQrBody: "Muéstralo para que te escaneen, o comparte el enlace. Quien lo abra podrá guardarte como contacto y escribirte.",
+  copyLink: "Copiar enlace",
+  share: "Compartir",
+  shareText: "Escríbeme en NodeXchange",
+  scanQr: "Escanear QR",
+  scanHint: "Apunta la cámara al código QR de NodeXchange de la otra persona.",
+  scanNotNodeX: "Ese QR no contiene una dirección Stellar. Prueba con el de NodeXchange.",
+  cameraDenied: "No se dio permiso para usar la cámara. Actívalo en los ajustes del navegador.",
+  cameraUnsupported: "Este navegador no permite usar la cámara aquí (hace falta HTTPS).",
+  saveContact: "Guardar contacto",
+  editContact: "Editar contacto",
+  removeContact: "Quitar de contactos",
+  contactName: "Nombre",
+  contactNameHint: "Solo lo ves tú. Se guarda cifrado en este dispositivo.",
+  contactNamePlaceholder: "Ej.: Ana, compañera",
+  saveAndChat: "Guardar y chatear",
 };
 
 export type Key = keyof typeof es;
@@ -358,7 +379,7 @@ const en: Record<Key, string> = {
   refresh: "Refresh",
   language: "Language",
 
-  newChatPlaceholder: "G… address to chat with",
+  newChatPlaceholder: "G… address or link",
   newChat: "New chat",
   invalidAddress: "Invalid Stellar address (starts with G, 56 characters).",
   ownAddress: "That is your own address.",
@@ -583,6 +604,26 @@ const en: Record<Key, string> = {
   extShare: "Share",
   extSharedCard: "External address",
   previewMethod: "External {tag} address",
+
+  contacts: "Contacts",
+  myQr: "My QR code",
+  myQrHint: "So people can add you in person",
+  myQrBody: "Show it to be scanned, or share the link. Whoever opens it can save you as a contact and message you.",
+  copyLink: "Copy link",
+  share: "Share",
+  shareText: "Message me on NodeXchange",
+  scanQr: "Scan QR",
+  scanHint: "Point the camera at the other person's NodeXchange QR code.",
+  scanNotNodeX: "That QR has no Stellar address. Try the NodeXchange one.",
+  cameraDenied: "Camera permission was denied. Enable it in your browser settings.",
+  cameraUnsupported: "This browser can't use the camera here (HTTPS is required).",
+  saveContact: "Save contact",
+  editContact: "Edit contact",
+  removeContact: "Remove from contacts",
+  contactName: "Name",
+  contactNameHint: "Only you see it. Stored encrypted on this device.",
+  contactNamePlaceholder: "E.g. Ana, classmate",
+  saveAndChat: "Save and chat",
 };
 
 export type Lang = "es" | "en";

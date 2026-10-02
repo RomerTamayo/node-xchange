@@ -13,11 +13,16 @@ import {
   Lock,
   MoreVertical,
   Plus,
+  QrCode,
   RefreshCw,
+  ScanLine,
   Send,
   Settings as SettingsIcon,
   ShieldCheck,
   Trash2,
+  UserCheck,
+  UserMinus,
+  UserPlus,
   Wallet as WalletIcon,
 } from "lucide-react";
 import {
@@ -37,6 +42,8 @@ import { clearAll, loadSettings, saveSettings, type Account, type LocalMessage }
 import type { Unlocked } from "../lib/vault.ts";
 import { useChats } from "../lib/useChats.ts";
 import { connectExternal, short, type Wallet } from "../lib/wallet.ts";
+import { addressFromText, takeInvite } from "../lib/invite.ts";
+import { ContactDialog, MyQrDialog, ScanDialog } from "./Contacts.tsx";
 import { ExtPayDialog, MethodCard, MyMethodsDialog, ShareMethodDialog } from "./ExternalMethods.tsx";
 import { DealCard, DealDialog, DealsPanel, PayDialog, ReceiptLinks, WithdrawDialog } from "./Payments.tsx";
 import { SettingsDialog } from "./SettingsDialog.tsx";
@@ -110,8 +117,10 @@ export function Messenger({
   const [node, setNode] = useState<NodeInfo | null>(null);
   const [balances, setBalances] = useState<{ XLM: string; USDC: string | null } | null>(null);
   const [dialog, setDialog] = useState<
-    "pay" | "deal" | "deals" | "withdraw" | "settings" | "methods" | "extpay" | "share" | null
+    "pay" | "deal" | "deals" | "withdraw" | "settings" | "methods" | "extpay" | "share" | "myqr" | "scan" | null
   >(null);
+  /** Contact being saved or renamed; `openChat` when it came from an invite or scan. */
+  const [contactTarget, setContactTarget] = useState<{ address: string; openChat: boolean } | null>(null);
   const [confirmation, setConfirmation] = useState<Confirmation | null>(null);
   const [newPeer, setNewPeer] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -165,7 +174,8 @@ export function Messenger({
 
   const openChat = () =>
     run(async () => {
-      const addr = newPeer.trim();
+      // Accepts a plain address or a pasted invite link.
+      const addr = addressFromText(newPeer.trim()) ?? newPeer.trim();
       if (!isAddress(addr)) throw new Error(t("invalidAddress"));
       if (addr === me) throw new Error(t("ownAddress"));
       // A blocked user opens straight away, showing the "blocked" notice.
@@ -173,6 +183,36 @@ export function Messenger({
       setPeer(addr);
       setNewPeer("");
     });
+
+  /** An address from an invite link or a scanned QR: offer to save it, then chat. */
+  const receiveInvite = useCallback(
+    (addr: string) =>
+      run(async () => {
+        if (addr === me) throw new Error(t("ownAddress"));
+        if (chats.blocked.includes(addr)) {
+          setPeer(addr);
+          return;
+        }
+        await chats.lookup(addr);
+        if (chats.contacts[addr]) setPeer(addr);
+        else setContactTarget({ address: addr, openChat: true });
+      }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [me, chats.blocked, chats.contacts, chats.lookup],
+  );
+
+  // Invite links (#/add/G...) opened in this tab, now or while the app is open.
+  const inviteRef = useRef(receiveInvite);
+  inviteRef.current = receiveInvite;
+  useEffect(() => {
+    const check = () => {
+      const addr = takeInvite();
+      if (addr) inviteRef.current(addr);
+    };
+    check();
+    window.addEventListener("hashchange", check);
+    return () => window.removeEventListener("hashchange", check);
+  }, []);
 
   const sendPayload = useCallback(
     async (payload: Payload) => {
@@ -188,7 +228,7 @@ export function Messenger({
       title: t("blockTitle"),
       message: (
         <>
-          <PeerName address={target} alias={chats.aliasOf(target)} /> {t("blockBody")}
+          <PeerName address={target} alias={chats.nameOf(target)} /> {t("blockBody")}
         </>
       ),
       confirmLabel: t("block"),
@@ -204,7 +244,7 @@ export function Messenger({
       title: t("unblockTitle"),
       message: (
         <>
-          <PeerName address={target} alias={chats.aliasOf(target)} /> {t("unblockBody")}
+          <PeerName address={target} alias={chats.nameOf(target)} /> {t("unblockBody")}
         </>
       ),
       confirmLabel: t("unblock"),
@@ -216,6 +256,7 @@ export function Messenger({
   const normal = chats.conversations.filter((c) => !c.request);
 
   const walletItems: MenuItem[] = [
+    { label: t("myQr"), hint: t("myQrHint"), icon: <QrCode size={16} className="text-emerald-300" />, onSelect: () => setDialog("myqr") },
     { label: t("copyMyAddress"), icon: <Copy size={16} />, onSelect: () => navigator.clipboard.writeText(me) },
     {
       label: t("withdraw"),
@@ -340,6 +381,9 @@ export function Messenger({
           <div className="space-y-2 border-b border-white/10 p-3">
             <div className="flex gap-2">
               <Input value={newPeer} onChange={(e) => setNewPeer(e.target.value)} placeholder={t("newChatPlaceholder")} />
+              <Button variant="ghost" onClick={() => setDialog("scan")} aria-label={t("scanQr")} title={t("scanQr")}>
+                <ScanLine size={18} />
+              </Button>
               <Button onClick={openChat} disabled={!newPeer} aria-label={t("newChat")} title={t("newChat")}>
                 <Plus size={18} />
               </Button>
@@ -349,13 +393,19 @@ export function Messenger({
           <div className="flex-1 overflow-y-auto p-1.5">
             {requests.length > 0 && <SectionLabel className="text-violet-300">{t("requests")}</SectionLabel>}
             {requests.map((c) => (
-              <ConversationItem key={c.peer} peer={c.peer} alias={chats.aliasOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
+              <ConversationItem key={c.peer} peer={c.peer} alias={chats.nameOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
             ))}
             {normal.length > 0 && <SectionLabel>{t("chats")}</SectionLabel>}
             {normal.map((c) => (
-              <ConversationItem key={c.peer} peer={c.peer} alias={chats.aliasOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
+              <ConversationItem key={c.peer} peer={c.peer} alias={chats.nameOf(c.peer)} last={c.messages.at(-1)} unread={c.unread} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
             ))}
-            {chats.conversations.length === 0 && <p className="p-4 text-sm text-ink-400">{t("noChats")}</p>}
+            {chats.idleContacts.length > 0 && <SectionLabel>{t("contacts")}</SectionLabel>}
+            {chats.idleContacts.map((c) => (
+              <ConversationItem key={c.peer} peer={c.peer} alias={chats.nameOf(c.peer)} unread={0} active={peer === c.peer} onClick={() => setPeer(c.peer)} />
+            ))}
+            {chats.conversations.length === 0 && chats.idleContacts.length === 0 && (
+              <p className="p-4 text-sm text-ink-400">{t("noChats")}</p>
+            )}
           </div>
         </aside>
 
@@ -365,7 +415,8 @@ export function Messenger({
               me={me}
               refreshTick={refreshTick}
               peer={peer}
-              alias={chats.aliasOf(peer)}
+              alias={chats.nameOf(peer)}
+              isContact={!!chats.contacts[peer]}
               blocked={chats.blocked.includes(peer)}
               messages={conversation?.messages ?? []}
               request={conversation?.request ?? false}
@@ -384,6 +435,8 @@ export function Messenger({
                 setDialog("extpay");
               }}
               onShareMethod={() => setDialog("share")}
+              onEditContact={() => setContactTarget({ address: peer, openChat: false })}
+              onRemoveContact={() => chats.removeContact(peer)}
             />
           ) : (
             <div className="flex flex-1 items-center justify-center p-8 text-center text-sm text-ink-400">
@@ -407,12 +460,32 @@ export function Messenger({
           key={refreshTick}
           me={me}
           getWallet={getWallet}
-          aliasOf={chats.aliasOf}
+          aliasOf={chats.nameOf}
           notify={async (to, payload) => {
             await chats.send(to, payload);
             refreshBalances();
           }}
           onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog === "myqr" && <MyQrDialog me={me} alias={chats.myAlias} onClose={() => setDialog(null)} />}
+      {dialog === "scan" && (
+        <ScanDialog
+          onAddress={(addr) => {
+            setDialog(null);
+            receiveInvite(addr);
+          }}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {contactTarget && (
+        <ContactDialog
+          address={contactTarget.address}
+          alias={chats.aliasOf(contactTarget.address)}
+          current={chats.contacts[contactTarget.address] ?? null}
+          onSave={(name) => chats.saveContact(contactTarget.address, name)}
+          onOpenChat={contactTarget.openChat ? () => setPeer(contactTarget.address) : undefined}
+          onClose={() => setContactTarget(null)}
         />
       )}
       {dialog === "methods" && (
@@ -551,6 +624,9 @@ function ChatPane(props: {
   onDeal: () => void;
   onExtPay: () => void;
   onShareMethod: () => void;
+  isContact: boolean;
+  onEditContact: () => void;
+  onRemoveContact: () => void;
 }) {
   const { me, peer, messages, request, blocked } = props;
   const [text, setText] = useState("");
@@ -625,6 +701,12 @@ function ChatPane(props: {
               chevron={false}
               trigger={<MoreVertical size={16} />}
               items={[
+                props.isContact
+                  ? { label: t("editContact"), icon: <UserCheck size={16} className="text-emerald-300" />, onSelect: props.onEditContact }
+                  : { label: t("saveContact"), icon: <UserPlus size={16} className="text-emerald-300" />, onSelect: props.onEditContact },
+                ...(props.isContact
+                  ? [{ label: t("removeContact"), icon: <UserMinus size={16} />, onSelect: props.onRemoveContact }]
+                  : []),
                 { label: t("copyAddress"), icon: <Copy size={16} />, onSelect: () => navigator.clipboard.writeText(peer) },
                 { label: t("shareExtMethod"), icon: <CreditCard size={16} className="text-amber-300" />, onSelect: props.onShareMethod },
                 { label: t("block"), icon: <Ban size={16} />, danger: true, onSelect: props.onBlock },

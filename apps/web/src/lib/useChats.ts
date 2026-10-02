@@ -14,6 +14,19 @@ export interface Conversation {
   request: boolean;
 }
 
+export const MAX_CONTACT_NAME_CHARS = 32;
+
+/** Keeps a contact (adding it if needed); `name` undefined keeps the current one. */
+function withContact(c: Chats, peer: string, name?: string | null): Chats {
+  const current = c.contacts[peer];
+  if (current && name === undefined) return c;
+  const clean = name?.trim().slice(0, MAX_CONTACT_NAME_CHARS) || null;
+  return {
+    ...c,
+    contacts: { ...c.contacts, [peer]: { name: name === undefined ? (current?.name ?? null) : clean, addedAt: current?.addedAt ?? Date.now() } },
+  };
+}
+
 export function useChats(session: Session, dataKey: Uint8Array, volatile: boolean, openPeer: string | null) {
   const me = session.address;
   const [chats, setChats] = useState<Chats>(() => {
@@ -103,7 +116,7 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
   );
 
   // Keep aliases of the people we talk to reasonably fresh.
-  const peers = [...Object.keys(chats.messages), ...(openPeer ? [openPeer] : [])];
+  const peers = [...new Set([...Object.keys(chats.messages), ...Object.keys(chats.contacts), ...(openPeer ? [openPeer] : [])])];
   const stalePeers = peers.filter((p) => {
     const cached = chats.aliases[p];
     return (!cached || cached.at + ALIAS_TTL_MS < Date.now()) && !aliasInFlight.current.has(p);
@@ -130,6 +143,26 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
   }, [openPeer, lookup]);
 
   const aliasOf = useCallback((peer: string) => chats.aliases[peer]?.alias ?? null, [chats.aliases]);
+  /** What we show for someone: the name we saved, else the alias they chose. */
+  const nameOf = useCallback(
+    (peer: string) => chats.contacts[peer]?.name ?? chats.aliases[peer]?.alias ?? null,
+    [chats.contacts, chats.aliases],
+  );
+
+  const saveContact = useCallback(
+    (peer: string, name: string | null) => update((c) => withContact(c, peer, name)),
+    [update],
+  );
+
+  const removeContact = useCallback(
+    (peer: string) =>
+      update((c) => {
+        const contacts = { ...c.contacts };
+        delete contacts[peer];
+        return { ...c, contacts };
+      }),
+    [update],
+  );
 
   const setMyAlias = useCallback(
     async (alias: string | null) => {
@@ -173,6 +206,8 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
       }
       const env = await session.send(peer, payload);
       addOutgoing(peer, env.id, env.ts, payload);
+      // People we write to are kept as contacts, so they survive expired chats.
+      if (!blocked.includes(peer)) update((c) => withContact(c, peer));
     },
     [session, update, addOutgoing],
   );
@@ -180,11 +215,16 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
   const accept = useCallback(
     async (peer: string) => {
       await session.setContact(peer, "accepted");
-      update((c) => ({
-        ...c,
-        accepted: [...new Set([...c.accepted, peer])],
-        messages: { ...c.messages, [peer]: (c.messages[peer] ?? []).map((m) => ({ ...m, request: false })) },
-      }));
+      update((c) =>
+        withContact(
+          {
+            ...c,
+            accepted: [...new Set([...c.accepted, peer])],
+            messages: { ...c.messages, [peer]: (c.messages[peer] ?? []).map((m) => ({ ...m, request: false })) },
+          },
+          peer,
+        ),
+      );
     },
     [session, update],
   );
@@ -195,7 +235,9 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
       update((c) => {
         const messages = { ...c.messages };
         delete messages[peer];
-        return { ...c, messages, blocked: [...c.blocked, peer], accepted: c.accepted.filter((p) => p !== peer) };
+        const contacts = { ...c.contacts };
+        delete contacts[peer];
+        return { ...c, messages, contacts, blocked: [...c.blocked, peer], accepted: c.accepted.filter((p) => p !== peer) };
       });
     },
     [session, update],
@@ -256,6 +298,12 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
     }))
     .sort((a, b) => b.last - a.last);
 
+  /** Saved contacts without an open conversation, by name. */
+  const idleContacts = Object.entries(chats.contacts)
+    .filter(([peer]) => !chats.messages[peer]?.length)
+    .map(([peer, contact]) => ({ peer, ...contact }))
+    .sort((a, b) => (nameOf(a.peer) ?? a.peer).localeCompare(nameOf(b.peer) ?? b.peer));
+
   return {
     conversations,
     error,
@@ -264,6 +312,11 @@ export function useChats(session: Session, dataKey: Uint8Array, volatile: boolea
     myMethods: chats.myMethods,
     setMyMethods,
     peerMethods,
+    contacts: chats.contacts,
+    idleContacts,
+    saveContact,
+    removeContact,
+    nameOf,
     aliasOf,
     lookup,
     setMyAlias,

@@ -2,7 +2,6 @@
 // leave NodeXchange, so they carry no escrow. We only show and verify addresses.
 
 import { useEffect, useState } from "react";
-import QRCode from "qrcode";
 import { AlertTriangle, BadgeCheck, Check, Copy, Info, Link2, QrCode, ShieldAlert, ShieldQuestion, Trash2 } from "lucide-react";
 import {
   EXT_NETWORKS,
@@ -23,7 +22,7 @@ import { stellar } from "../lib/config.ts";
 import { t, useLang, type Key } from "../lib/i18n.ts";
 import type { MyMethod } from "../lib/store.ts";
 import type { Wallet } from "../lib/wallet.ts";
-import { Button, ErrorText, Field, Input, Modal, errorMessage } from "./ui.tsx";
+import { Button, ErrorText, Field, Input, Modal, Qr, errorMessage } from "./ui.tsx";
 
 const CHAIN_RESERVE_XLM = 0.5;
 const dataEntry = (account: string, key: string) => stellar.dataEntry(account, key);
@@ -63,14 +62,6 @@ function VerdictBadge({ verdict }: { verdict: ExtVerdict | null }) {
       {t(v.key)}
     </span>
   );
-}
-
-function Qr({ text }: { text: string }) {
-  const [src, setSrc] = useState<string | null>(null);
-  useEffect(() => {
-    QRCode.toDataURL(text, { margin: 1, width: 220 }).then(setSrc).catch(() => setSrc(null));
-  }, [text]);
-  return src ? <img src={src} alt="QR" className="mx-auto rounded-lg bg-white p-1" width={180} height={180} /> : null;
 }
 
 function CopyButton({ text }: { text: string }) {

@@ -67,6 +67,12 @@ export interface MyMethod {
   public: boolean;
 }
 
+/** Someone we saved, with the name we gave them (theirs is the alias). */
+export interface Contact {
+  name: string | null;
+  addedAt: number;
+}
+
 export interface Chats {
   messages: Record<string, LocalMessage[]>; // by peer
   /** Ids the user deleted locally, so the inbox poll doesn't bring them back. */
@@ -78,6 +84,8 @@ export interface Chats {
   /** The alias we published for ourselves. */
   myAlias: string | null;
   myMethods: MyMethod[];
+  /** Saved contacts: unlike chats, they never expire. */
+  contacts: Record<string, Contact>;
 }
 
 const emptyChats = (): Chats => ({
@@ -88,6 +96,7 @@ const emptyChats = (): Chats => ({
   aliases: {},
   myAlias: null,
   myMethods: [],
+  contacts: {},
 });
 
 /**
