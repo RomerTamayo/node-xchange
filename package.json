@@ -5,6 +5,7 @@
   "packageManager": "pnpm@11.7.0",
   "scripts": {
     "dev:web": "pnpm --filter @nodexchange/web dev",
+    "dev:site": "pnpm --filter @nodexchange/site dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"
   }
