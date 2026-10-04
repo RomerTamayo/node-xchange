@@ -31,6 +31,6 @@ Puedes hacer un fork y operar tu propio nodo, como permite la AGPL-3.0. Solo tie
 
 ## Pedir permiso o reportar un mal uso
 
-Abre un *issue* en el [repositorio oficial](https://github.com/RomerTamayo/stellar-build/issues) o escribe al mantenedor por [LinkedIn](https://www.linkedin.com/in/romer-flores-tamayo). Respondemos con gusto a pedidos razonables.
+Abre un *issue* en el [repositorio oficial](https://github.com/RomerTamayo/node-xchange/issues) o escribe al mantenedor por [LinkedIn](https://www.linkedin.com/in/romer-flores-tamayo). Respondemos con gusto a pedidos razonables.
 
 Esta política puede actualizarse. La versión vigente es la que está publicada en el repositorio oficial.

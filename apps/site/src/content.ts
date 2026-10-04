@@ -3,7 +3,7 @@
 export type Lang = "es" | "en";
 
 export const DEMO_URL = "https://nodexchange.pages.dev";
-export const REPO_URL = "https://github.com/RomerTamayo/stellar-build";
+export const REPO_URL = "https://github.com/RomerTamayo/node-xchange";
 export const ESCROW_URL =
   "https://stellar.expert/explorer/testnet/contract/CAUDG4P37366J335GKBVOG35MPUQ4RDDLL7DJUJSUMOCEVORISPB3UPP";
 
