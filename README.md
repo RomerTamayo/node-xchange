@@ -67,7 +67,7 @@ Pruebas: `pnpm --filter @nodexchange/core test`.
 
 ## Licencia
 
-[AGPL-3.0](LICENSE)
+El código está bajo la licencia [AGPL-3.0](LICENSE). El nombre y el logo de NodeXchange no están incluidos en esa licencia; mira la [política de marca](TRADEMARK.md). Para contribuir, lee [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
