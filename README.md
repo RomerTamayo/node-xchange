@@ -51,6 +51,8 @@ Pensado para compras y ventas entre personas: marketplaces, grupos de venta, fer
 | Nodo de mensajes | Supabase (Postgres + Edge Function) | `supabase` |
 | Garantía de pagos | Contrato Soroban en Rust | `contracts/escrow` |
 
+El nodo de la carpeta `supabase` es el **nodo de referencia**: funciona completo y cualquiera puede montarlo, pero solo recibe arreglos de seguridad. El nodo oficial usa una versión ampliada, compatible con el mismo protocolo.
+
 ## Ejecutarlo en tu equipo
 
 Necesitas Node.js, pnpm, Docker y el CLI de Supabase.
